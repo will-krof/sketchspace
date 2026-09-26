@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#17212b">
+  <meta name="description" content="A simple wireframe editor. Add elements, arrange them on the canvas, and save your sketch.">
+  <title>Sketchspace — Wireframe Editor</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2317212b'/%3E%3Crect x='13' y='15' width='38' height='34' rx='3' fill='none' stroke='%23e4f47a' stroke-width='4'/%3E%3Cpath d='M13 26h38M24 26v23' stroke='%23e4f47a' stroke-width='4'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./editor.css">
+  <link rel="stylesheet" href="./library.css?v=9">
+</head>
+<body class="loading">
+  <div class="app">
+    <header class="topbar">
+      <div class="brand" aria-label="Sketchspace"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>sketchspace<span class="brand-dot">.</span></span></div>
+      <div class="project-name"><span class="project-label">WIREFRAME</span><input id="projectTitle" aria-label="Wireframe name" value="My first wireframe" maxlength="60"><span id="saveStatus" class="save-status">Loading…</span></div>
+      <div class="header-actions">
+        <button id="libraryButton" class="subtle-btn" type="button">My wireframes <span id="libraryCount">0/10</span></button>
+        <button id="undoBtn" class="icon-btn" type="button" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
+        <button id="redoBtn" class="icon-btn" type="button" title="Redo (Ctrl+Y)" aria-label="Redo">↷</button>
+      </div>
+    </header>
+
+    <main class="workspace">
+      <aside class="palette" aria-label="Elements">
+        <div class="panel-heading"><span>ELEMENTS</span><span id="toolCount" class="heading-counter">32</span></div>
+        <p class="palette-hint">Choose a category, then add an element</p>
+        <label class="palette-search"><span class="search-glyph" aria-hidden="true">⌕</span><input id="toolSearch" type="search" placeholder="Search elements" aria-label="Search elements" autocomplete="off"></label>
+        <div id="categoryTabs" class="category-tabs" role="tablist" aria-label="Element categories"></div>
+        <div class="tool-list" id="toolList"></div>
+      </aside>
+
+      <section class="canvas-area" aria-label="Canvas workspace">
+        <div class="canvas-toolbar"><div class="canvas-label"><span class="page-icon">▧</span> Canvas</div><div class="canvas-meta"><span id="canvasSize" class="canvas-size">960 × 640</span><div class="zoom-controls" role="group" aria-label="Page zoom"><span class="zoom-label">Zoom</span><button id="zoomOut" type="button" aria-label="Zoom out">−</button><input id="zoomSlider" type="range" min="40" max="200" step="10" value="100" aria-label="Page zoom"><output id="zoomValue" for="zoomSlider">100%</output><button id="zoomIn" type="button" aria-label="Zoom in">+</button><button id="zoomFit" class="zoom-fit" type="button" title="Fit page to view">Fit</button></div></div></div>
+        <div id="canvasScroll" class="canvas-scroll"><div id="canvasMount" class="canvas-mount"><div id="canvas" class="canvas" role="group" aria-label="Page wireframe"></div></div></div>
+        <div class="canvas-footer"><span><i class="autosave-dot"></i> Saved to your wireframes</span><span>Drag to select · Space + drag to pan</span></div>
+      </section>
+
+      <aside class="inspector" aria-label="Element properties"><div class="panel-heading"><span>PROPERTIES</span><span class="inspector-spark">✳</span></div><div id="inspectorContent"></div></aside>
+    </main>
+  </div>
+  <dialog id="libraryDialog" class="library-dialog" aria-labelledby="libraryTitle">
+    <div class="library-header"><div><h2 id="libraryTitle">My wireframes</h2><p>Open, rename, or delete your saved work. Up to 10 wireframes.</p></div><button id="closeLibrary" class="library-close" type="button" aria-label="Close wireframes">×</button></div>
+    <div id="libraryList" class="library-list"></div>
+    <p id="libraryEmpty" class="library-empty"></p>
+    <div class="library-footer"><span>Only you can access these saved wireframes.</span><button id="newWireframe" class="primary-btn" type="button">+ New wireframe</button></div>
+  </dialog>
+  <div id="loadingCover" class="loading-cover"><div><strong id="loadingMessage">Loading your wireframes…</strong><button id="retryLoad" type="button">Try again</button></div></div>
+  <input id="fileInput" type="file" accept=".json,application/json" hidden>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="./app.js?v=10"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "sketchspace",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-site.cjs",
+    "db:generate": "drizzle-kit generate"
+  },
+  "devDependencies": {
+    "drizzle-kit": "0.31.10",
+    "drizzle-orm": "0.45.2",
+    "typescript": "5.9.3"
+  }
+}

@@ -27,4 +27,3 @@ node --test tests/worker.test.mjs
 ```
 
 The deployed site uses a D1 database binding named `DB` and the hosting platform's authenticated user header. `.openai/hosting.json` identifies the existing Sites project.
-
