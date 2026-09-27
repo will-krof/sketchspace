@@ -59,7 +59,7 @@ Each push to `main` runs the Windows release workflow. It builds and tests the a
 
 Wireframes are saved to a local JSON file in Electron's `userData` directory. They are not uploaded to GitHub or synchronized between computers. To move work from the earlier web editor, export each wireframe as JSON there and import it through **My wireframes** in the desktop app.
 
-The desktop app uses one editor window with an animated loading overlay that fades when the editor is ready. On an idle Windows system, several Sketchspace processes in Task Manager are expected because Electron separates the app, renderer, GPU and utility work. Keep the Chromium sandbox enabled; forcing a single process would weaken isolation. The update check runs at startup and every 30 minutes, including while the window is hidden in the tray; there is no continuous background rendering loop.
+The desktop app uses one editor window with an animated loading overlay that fades when the editor is ready. On Windows it uses software compositing to reduce intermittent whole-window flashes associated with some GPU and driver combinations. Several Sketchspace processes in Task Manager are still expected because Electron separates the app, renderer and utility work. Keep the Chromium sandbox enabled; forcing a single process would weaken isolation. The update check runs at startup and every 30 minutes, including while the window is hidden in the tray; there is no continuous background rendering loop.
 
 ## A quick workflow
 

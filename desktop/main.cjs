@@ -12,6 +12,9 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; cha
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'sketchspace', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 app.setAppUserModelId('com.willkrof.sketchspace');
+// The editor is a 2D DOM canvas; software compositing can reduce intermittent
+// whole-window white flashes on affected Windows GPU/driver combinations.
+if (process.platform === 'win32') app.disableHardwareAcceleration();
 
 let window;
 let tray;
@@ -102,7 +105,7 @@ function registerAssets() {
 function createWindow() {
   const icon = path.resolve(__dirname, '..', 'assets', 'icon.png');
   window = new BrowserWindow({ width: 1520, height: 960, minWidth: 1050, minHeight: 680, show: false,
-    title: 'Sketchspace', backgroundColor: '#17212b', icon, autoHideMenuBar: true,
+    title: 'Sketchspace', backgroundColor: '#eef1f3', icon, autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), sandbox: true, contextIsolation: true, nodeIntegration: false } });
   window.once('ready-to-show', () => window?.show());
   window.loadURL(APP_URL);
