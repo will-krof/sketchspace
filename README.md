@@ -61,7 +61,9 @@ Wireframes are saved to a local JSON file in Electron's `userData` directory. Th
 
 The folder icon in **My wireframes** opens Windows Explorer with `wireframes.json` selected. All wireframes on that computer are stored in this one file.
 
-The desktop app uses one editor window with an animated loading overlay that fades when the editor is ready. On Windows it uses software compositing to reduce intermittent whole-window flashes associated with some GPU and driver combinations. Several Sketchspace processes in Task Manager are still expected because Electron separates the app, renderer and utility work. Keep the Chromium sandbox enabled; forcing a single process would weaken isolation. The update check runs at startup and every 30 minutes, including while the window is hidden in the tray; there is no continuous background rendering loop.
+The desktop app uses one editor window with an animated loading overlay that fades when the editor is ready. On Windows it uses software compositing to reduce intermittent whole-window flashes associated with some GPU and driver combinations. Several Sketchspace processes in Task Manager are still expected because Electron separates the app, renderer and utility work. The updater loads after the editor starts, then checks for updates every 30 minutes, including while the window is hidden in the tray; there is no continuous background rendering loop.
+
+The Electron renderer is sandboxed and isolated from Node.js. The app serves only bundled assets through a restricted custom protocol, rejects navigation and browser permissions, validates IPC calls from the editor's main frame, and checks saved document structure and size. Packaged builds disable unused Electron features and validate the ASAR archive. Local writes are queued and atomic; the in-memory cache avoids reparsing every wireframe on each save. Run `pnpm bench:storage` to measure the storage path on your machine. The Windows installer remains unsigned until a verified publisher certificate or Artifact Signing account is configured.
 
 ## A quick workflow
 

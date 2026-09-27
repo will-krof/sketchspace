@@ -59,3 +59,14 @@ test('font, breadcrumb, and progress settings survive local storage validation',
   invalidProgress.pages.desktop.items[1].progress = 999;
   assert.throws(() => store.update(entry.id, invalidProgress), /Invalid wireframe/);
 });
+
+test('concurrent writes stay ordered and oversized local files are rejected', async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'sketchspace-store-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const store = storage.createStore(directory);
+  await Promise.all(Array.from({ length: 10 }, (_, index) => store.create(document(`Concurrent ${index}`))));
+  assert.equal((await store.list()).items.length, 10);
+  assert.equal((await storage.createStore(directory).list()).items.length, 10);
+  fs.writeFileSync(path.join(directory, 'wireframes.json'), 'x'.repeat(3000001));
+  await assert.rejects(storage.createStore(directory).list(), /too large/);
+});

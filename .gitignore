@@ -4,3 +4,4 @@ dist/.openai/
 .sites-runtime/
 .wrangler/
 release/
+.cache-local/

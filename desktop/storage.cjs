@@ -3,6 +3,7 @@ const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 
 const MAX_BYTES = 250000;
+const MAX_STORE_BYTES = 3000000;
 const MAX_WIREFRAMES = 10;
 const DEVICES = ['desktop', 'tablet', 'mobile'];
 const FONTS = new Set(['Comic Sans MS', 'Arial', 'Verdana', 'Georgia', 'Times New Roman', 'Trebuchet MS', 'Courier New', 'Segoe UI']);
@@ -46,31 +47,48 @@ function checkedDocument(document) {
 function createStore(directory) {
   const file = path.join(directory, 'wireframes.json');
   let queue = Promise.resolve();
-  function read() {
-    if (!fs.existsSync(file)) return { version: 1, items: [] };
-    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  let cached;
+  async function read() {
+    if (cached) return cached;
+    let contents;
+    try {
+      const stats = await fs.promises.stat(file);
+      if (stats.size > MAX_STORE_BYTES) throw Error('Local wireframe data is too large.');
+      contents = await fs.promises.readFile(file, 'utf8');
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      return { version: 1, items: [] };
+    }
+    const data = JSON.parse(contents);
     if (data?.version !== 1 || !Array.isArray(data.items) || data.items.length > MAX_WIREFRAMES || !data.items.every(item =>
       object(item) && typeof item.id === 'string' && /^[a-f0-9-]{36}$/.test(item.id) && Number.isSafeInteger(item.updatedAt) && validDocument(item.document))) {
       throw Error('Local wireframe data is invalid.');
     }
-    return data;
+    cached = data;
+    return cached;
   }
-  function write(data) {
-    fs.mkdirSync(directory, { recursive: true });
+  async function write(data) {
+    await fs.promises.mkdir(directory, { recursive: true });
     const temp = `${file}.${randomUUID()}.tmp`;
     try {
-      fs.writeFileSync(temp, JSON.stringify(data), { encoding: 'utf8', flag: 'wx', mode: 0o600 });
-      fs.renameSync(temp, file);
+      await fs.promises.writeFile(temp, JSON.stringify(data), { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+      await fs.promises.rename(temp, file);
     } finally {
-      if (fs.existsSync(temp)) fs.unlinkSync(temp);
+      await fs.promises.rm(temp, { force: true }).catch(() => {});
     }
   }
   function mutate(action) {
-    const operation = queue.then(() => {
-      const data = read();
-      const result = action(data);
-      write(data);
-      return result;
+    const operation = queue.then(async () => {
+      try {
+        const data = await read();
+        const result = action(data);
+        await write(data);
+        cached = data;
+        return result;
+      } catch (error) {
+        cached = undefined;
+        throw error;
+      }
     });
     queue = operation.catch(() => {});
     return operation;
@@ -78,7 +96,7 @@ function createStore(directory) {
   return {
     async list() {
       await queue;
-      return { items: read().items.sort((a, b) => b.updatedAt - a.updatedAt) };
+      return { items: (await read()).items.slice().sort((a, b) => b.updatedAt - a.updatedAt) };
     },
     create(document) {
       const copy = checkedDocument(document);

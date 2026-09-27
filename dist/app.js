@@ -129,7 +129,7 @@
   const itemNodes = new Map(), itemsById = new Map();
   const undo = [], redo = [];
   const page = () => doc.pages[doc.device].items;
-  const size = () => PRESETS.desktop;
+  const size = () => PRESETS[doc.device];
   const current = () => selection.size === 1 ? page().find(item => item.id === selected) : undefined;
   const selectedItems = () => page().filter(item => selection.has(item.id));
   const effectiveFontSize = item => {
@@ -223,12 +223,13 @@
   function save() {
     if (!ready || !activeId) return;
     const entry = library.find(item => item.id === activeId);
-    if (entry) { entry.document = clone(doc); entry.title = doc.title; entry.updatedAt = Date.now(); }
+    if (entry) { entry.document = doc; entry.title = doc.title; entry.updatedAt = Date.now(); }
     $('#saveStatus').textContent = 'Saving…';
     clearTimeout(saveTimer); saveTimer = setTimeout(() => { void sendSave().catch(() => {}); }, 350);
     if ($('#libraryDialog').open) renderLibrary();
   }
   async function flushSave() { if (saveTimer) sendSave(); await pendingSave; }
+  if (window.sketchspaceDesktop) window.sketchspaceFlushBeforeQuit = async () => { await flushSave(); return true; };
   function clearEditorHistory() { undo.length = 0; redo.length = 0; selected = null; selection.clear(); updateHistory(); }
   function activate(entry) {
     activeId = entry?.id || null; doc = entry ? normalize(entry.document) : normalize({ title: 'Untitled', device: 'desktop', pages: { desktop: { items: [] }, tablet: { items: [] }, mobile: { items: [] } } });
@@ -279,7 +280,10 @@
     };
     desktop.updates.onChange(render);
     desktop.updates.state().then(render).catch(() => {});
-    button.addEventListener('click', () => desktop.updates.action().catch(error => toast(error.message || 'Update failed.')));
+    button.addEventListener('click', async () => {
+      try { await flushSave(); await desktop.updates.action(); }
+      catch (error) { toast(error.message || 'Update failed.'); }
+    });
   }
 
   function categoryTypes(id = category) {

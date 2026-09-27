@@ -1,16 +1,15 @@
-const { app, BrowserWindow, ipcMain, Menu, net, protocol, session, shell, Tray } = require('electron');
-const { autoUpdater } = require('electron-updater');
+const { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, session, shell, Tray } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
+const { CSP, resolveAssetPath } = require('./assets.cjs');
 const { createStore } = require('./storage.cjs');
 
 const ROOT = path.resolve(__dirname, '..', 'dist');
 const APP_URL = 'sketchspace://app/';
-const CSP = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.txt': 'text/plain; charset=utf-8' };
+Menu.setApplicationMenu(null);
 
-protocol.registerSchemesAsPrivileged([{ scheme: 'sketchspace', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
+protocol.registerSchemesAsPrivileged([{ scheme: 'sketchspace', privileges: { standard: true, secure: true } }]);
 app.setAppUserModelId('com.willkrof.sketchspace');
 // The editor is a 2D DOM canvas; software compositing can reduce intermittent
 // whole-window white flashes on affected Windows GPU/driver combinations.
@@ -19,19 +18,42 @@ if (process.platform === 'win32') app.disableHardwareAcceleration();
 let window;
 let tray;
 let quitting = false;
+let quitPending = false;
+let finishQuitSave;
+let autoUpdater;
 let updaterState = { status: 'idle', version: app.getVersion() };
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 if (!hasSingleInstanceLock) app.quit();
 
 function showWindow() {
+  if (!app.isReady()) return;
   if (!window || window.isDestroyed()) { createWindow(); return; }
   if (window.isMinimized()) window.restore();
   window.show();
   window.focus();
 }
 
-function quitApp() {
+async function quitApp() {
+  if (quitting || quitPending) return;
+  quitPending = true;
+  if (window && !window.isDestroyed() && !window.webContents.isLoading()) {
+    const saved = await new Promise(resolve => {
+      const timeout = setTimeout(() => finishQuitSave?.(false), 10000);
+      finishQuitSave = success => {
+        clearTimeout(timeout);
+        finishQuitSave = null;
+        resolve(success);
+      };
+      window.webContents.send('app:flush-before-quit');
+    });
+    if (!saved) {
+      quitPending = false;
+      showWindow();
+      dialog.showErrorBox('Could not save wireframe', 'Sketchspace is still open. Try saving your wireframe before quitting.');
+      return;
+    }
+  }
   quitting = true;
   app.quit();
 }
@@ -65,6 +87,8 @@ async function checkForUpdates() {
 
 function configureUpdates() {
   if (!app.isPackaged) return;
+  try { ({ autoUpdater } = require('electron-updater')); }
+  catch (error) { console.warn('Updater unavailable:', error.message); return; }
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.on('update-available', info => publishUpdate({ status: 'available', version: info.version, percent: 0 }));
@@ -76,28 +100,23 @@ function configureUpdates() {
     publishUpdate({ status: retry ? 'available' : 'idle', message: 'Update unavailable. Try again later.' });
     console.warn('Updater error:', error.message);
   });
-  setTimeout(() => void checkForUpdates(), 4000);
+  void checkForUpdates();
   setInterval(() => void checkForUpdates(), 30 * 60 * 1000);
 }
 
 function registerAssets() {
   protocol.handle('sketchspace', async request => {
-    let url;
-    try { url = new URL(request.url); } catch { return new Response('Bad request', { status: 400 }); }
-    if (url.host !== 'app' || request.method !== 'GET') return new Response('Not found', { status: 404 });
-    let pathname;
-    try { pathname = decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname); }
-    catch { return new Response('Bad request', { status: 400 }); }
-    const file = path.resolve(ROOT, `.${pathname}`);
-    const relative = path.relative(ROOT, file);
-    if (!relative || relative.startsWith('..') || path.isAbsolute(relative) || !MIME[path.extname(file)] || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
-      return new Response('Not found', { status: 404 });
-    }
-    const response = await net.fetch(pathToFileURL(file).toString());
+    const asset = resolveAssetPath(request.url, request.method, ROOT);
+    if (!asset) return new Response('Not found', { status: 404 });
+    try {
+      if (!(await fs.promises.stat(asset.file)).isFile()) return new Response('Not found', { status: 404 });
+    } catch { return new Response('Not found', { status: 404 }); }
+    const response = await net.fetch(pathToFileURL(asset.file).toString());
     return new Response(response.body, { status: response.status, headers: {
-      'content-type': MIME[path.extname(file)],
+      'content-type': asset.mime,
       'content-security-policy': CSP,
-      'x-content-type-options': 'nosniff'
+      'x-content-type-options': 'nosniff',
+      'referrer-policy': 'no-referrer'
     } });
   });
 }
@@ -120,13 +139,20 @@ function createWindow() {
 if (hasSingleInstanceLock) app.whenReady().then(() => {
   registerAssets();
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, respond) => respond(false));
+  session.defaultSession.setPermissionCheckHandler(() => false);
   app.on('web-contents-created', (_event, contents) => {
-    contents.on('will-navigate', (event, destination) => { if (!destination.startsWith(APP_URL)) event.preventDefault(); });
+    contents.on('will-frame-navigate', (event, navigation) => {
+      if (!navigation.isMainFrame || navigation.url !== APP_URL) event.preventDefault();
+    });
     contents.setWindowOpenHandler(() => ({ action: 'deny' }));
     contents.on('will-attach-webview', event => event.preventDefault());
   });
   const store = createStore(app.getPath('userData'));
-  const fromEditor = event => { if (!window || event.sender !== window.webContents || !event.sender.getURL().startsWith(APP_URL)) throw Error('Invalid request.'); };
+  const fromEditor = event => {
+    if (!window || event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame || event.senderFrame?.url !== APP_URL) {
+      throw Error('Invalid request.');
+    }
+  };
   ipcMain.handle('wireframes:list', event => { fromEditor(event); return store.list(); });
   ipcMain.handle('wireframes:create', (event, document) => { fromEditor(event); return store.create(document); });
   ipcMain.handle('wireframes:update', (event, id, document) => { fromEditor(event); return store.update(id, document); });
@@ -136,6 +162,11 @@ if (hasSingleInstanceLock) app.whenReady().then(() => {
     const file = path.join(app.getPath('userData'), 'wireframes.json');
     if (!fs.existsSync(file)) throw Error('Local wireframe file not found.');
     shell.showItemInFolder(file);
+  });
+  ipcMain.on('app:flush-result', (event, success) => {
+    if (event.sender === window?.webContents && event.senderFrame === window.webContents.mainFrame && event.senderFrame?.url === APP_URL) {
+      finishQuitSave?.(success === true);
+    }
   });
   ipcMain.handle('updates:state', event => { fromEditor(event); return updaterState; });
   ipcMain.handle('updates:action', async event => {
@@ -148,7 +179,7 @@ if (hasSingleInstanceLock) app.whenReady().then(() => {
   });
   createTray();
   createWindow();
-  configureUpdates();
+  if (app.isPackaged) setTimeout(configureUpdates, 4000);
   app.on('activate', showWindow);
 });
 
