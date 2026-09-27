@@ -1,14 +1,18 @@
 const { contextBridge, ipcRenderer } = require('electron');
+let flushBeforeQuit;
 
 ipcRenderer.on('app:flush-before-quit', async () => {
   let saved = false;
   try {
-    saved = typeof window.sketchspaceFlushBeforeQuit === 'function' && await window.sketchspaceFlushBeforeQuit() === true;
+    saved = typeof flushBeforeQuit === 'function' && await flushBeforeQuit() === true;
   } catch { /* Keep the editor open when persistence fails. */ }
   ipcRenderer.send('app:flush-result', saved);
 });
 
 contextBridge.exposeInMainWorld('sketchspaceDesktop', {
+  app: {
+    onBeforeQuit: callback => { if (typeof callback === 'function') flushBeforeQuit = callback; }
+  },
   storage: {
     list: () => ipcRenderer.invoke('wireframes:list'),
     create: document => ipcRenderer.invoke('wireframes:create', document),

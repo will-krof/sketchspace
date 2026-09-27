@@ -229,7 +229,7 @@
     if ($('#libraryDialog').open) renderLibrary();
   }
   async function flushSave() { if (saveTimer) sendSave(); await pendingSave; }
-  if (window.sketchspaceDesktop) window.sketchspaceFlushBeforeQuit = async () => { await flushSave(); return true; };
+  window.sketchspaceDesktop?.app?.onBeforeQuit?.(async () => { await flushSave(); return true; });
   function clearEditorHistory() { undo.length = 0; redo.length = 0; selected = null; selection.clear(); updateHistory(); }
   function activate(entry) {
     activeId = entry?.id || null; doc = entry ? normalize(entry.document) : normalize({ title: 'Untitled', device: 'desktop', pages: { desktop: { items: [] }, tablet: { items: [] }, mobile: { items: [] } } });

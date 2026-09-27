@@ -69,20 +69,16 @@ function createTray() {
   tray.on('click', showWindow);
   tray.on('double-click', showWindow);
 }
-let checkRunning = false;
-
 function publishUpdate(state) {
   updaterState = { ...updaterState, ...state };
   if (window && !window.isDestroyed()) window.webContents.send('updates:state', updaterState);
 }
 
 async function checkForUpdates() {
-  if (!app.isPackaged || checkRunning || ['downloading', 'ready'].includes(updaterState.status)) return;
-  checkRunning = true;
+  if (!app.isPackaged) return;
   publishUpdate({ status: 'checking', message: '' });
   try { await autoUpdater.checkForUpdates(); }
   catch (error) { publishUpdate({ status: 'idle', message: 'Could not check for updates.' }); console.warn('Update check failed:', error.message); }
-  finally { checkRunning = false; }
 }
 
 function configureUpdates() {
@@ -101,7 +97,6 @@ function configureUpdates() {
     console.warn('Updater error:', error.message);
   });
   void checkForUpdates();
-  setInterval(() => void checkForUpdates(), 30 * 60 * 1000);
 }
 
 function registerAssets() {

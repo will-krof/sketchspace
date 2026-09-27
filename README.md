@@ -2,9 +2,9 @@
 
 # Sketchspace
 
-### Wireframe quickly. Keep the idea moving.
+### A simple space for your next interface idea.
 
-A focused **Windows desktop app** for rough layouts, interface ideas and early product flows. Open it, place an element on the canvas, and keep working even when you are offline.
+Sketchspace is a **Windows desktop wireframe editor** for quick layouts and early product flows. Place elements, edit their content, and keep up to ten designs on your computer. The editor works offline.
 
 [Download the Windows installer](https://github.com/will-krof/sketchspace/releases/latest) · [See Cadence](https://github.com/will-krof/cadence)
 
@@ -22,13 +22,13 @@ Download and run `Sketchspace-Setup-*.exe` from the [latest release](https://git
 irm https://raw.githubusercontent.com/will-krof/sketchspace/main/scripts/install.ps1 | iex
 ```
 
-The script downloads the latest installer from GitHub Releases, verifies its SHA-512 checksum, and runs it. An internet connection is needed for installation and update checks. The editor and your saved wireframes work offline.
+The script downloads the latest GitHub Release, verifies its published SHA-512 checksum, and runs the installer. Installation and the launch-time update check need internet access; editing and local saving do not.
 
 ### Windows SmartScreen
 
 The current GitHub installer is **unsigned**, so Windows may show “Windows protected your PC.” A SHA-512 checksum verifies the downloaded file against the published release, but it does not establish a trusted publisher identity. Code signing requires a verified publisher and a trusted signing certificate or Microsoft Artifact Signing account. Once available, add `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD` as GitHub Actions secrets; the release workflow will sign the installer and fail if the resulting signature is invalid. Even signed new releases can show a SmartScreen prompt until publisher or file reputation builds. [Microsoft explains how SmartScreen reputation works](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation).
 
-## Made for the first draft
+## What you can make
 
 | Build | Refine | Keep |
 | --- | --- | --- |
@@ -49,21 +49,29 @@ Sketchspace has desktop, tablet and mobile canvases, along with iPhone, Samsung 
 
 The screenshots use fictional demo wireframes.
 
-## Updates and local data
+## Updates
 
-The installed app checks GitHub Releases at startup and every 30 minutes while it is running. When a newer version is published, an **Update** button appears in the top bar. Click it to download the update, then click **Restart to update**. Update checks require internet access; an offline check does not interrupt editing.
+Sketchspace checks GitHub Releases **once each time the app starts**, shortly after the editor opens. If a newer version is available, an **Update** button appears in the top bar. Click it to download the installer, then choose **Restart to update**. Sketchspace saves pending edits before restarting.
 
-Closing the window keeps Sketchspace running in the Windows notification area. Click its tray icon or choose **Open Sketchspace** from the tray menu to return to the editor. Choose **Quit Sketchspace** from that menu to exit completely. Opening Sketchspace again while it is running brings the existing window forward.
+There is no periodic update check while Sketchspace remains open or sits in the tray. If a new release is published during that time, choose **Quit Sketchspace** from the tray menu and start the app again to see the update. An offline or failed check does not interrupt editing; the next launch tries again.
 
-Each push to `main` runs the Windows release workflow. It builds and tests the app, gives it a new version, publishes a GitHub Release with the installer and update metadata, and makes that release available to installed copies. A failed workflow does not publish an update.
+Each push to `main` runs the Windows release workflow. It builds and tests the app, gives it a new version, and publishes a GitHub Release with the installer and update metadata. A failed workflow does not publish an update.
 
-Wireframes are saved to a local JSON file in Electron's `userData` directory. They are not uploaded to GitHub or synchronized between computers. To move work from the earlier web editor, export each wireframe as JSON there and import it through **My wireframes** in the desktop app.
+## Your wireframes and the tray
+
+Closing the window hides Sketchspace in the Windows notification area. Click the tray icon or choose **Open Sketchspace** to return. Choose **Quit Sketchspace** to exit completely; the app waits for pending edits to save first. If saving fails, the editor stays open so you can retry. Starting Sketchspace while it is already running brings the existing window forward and does not start another update check.
+
+Wireframes are saved to a local `wireframes.json` file in Electron's per-user data directory. They are not uploaded to GitHub or synchronized between computers. To move work from the earlier web editor, export each wireframe as JSON there and import it through **My wireframes** in the desktop app.
 
 The folder icon in **My wireframes** opens Windows Explorer with `wireframes.json` selected. All wireframes on that computer are stored in this one file.
 
-The desktop app uses one editor window with an animated loading overlay that fades when the editor is ready. On Windows it uses software compositing to reduce intermittent whole-window flashes associated with some GPU and driver combinations. Several Sketchspace processes in Task Manager are still expected because Electron separates the app, renderer and utility work. The updater loads after the editor starts, then checks for updates every 30 minutes, including while the window is hidden in the tray; there is no continuous background rendering loop.
+## Performance and security
 
-The Electron renderer is sandboxed and isolated from Node.js. The app serves only bundled assets through a restricted custom protocol, rejects navigation and browser permissions, validates IPC calls from the editor's main frame, and checks saved document structure and size. Packaged builds disable unused Electron features and validate the ASAR archive. Local writes are queued and atomic; the in-memory cache avoids reparsing every wireframe on each save. Run `pnpm bench:storage` to measure the storage path on your machine. The Windows installer remains unsigned until a verified publisher certificate or Artifact Signing account is configured.
+The editor has an animated loading overlay and uses software compositing on Windows to reduce intermittent whole-window flashes seen with some GPU and driver combinations. Electron may show several Sketchspace processes in Task Manager because the window, app and utility work run separately. There is no continuous background rendering loop or update polling.
+
+The Electron renderer is sandboxed and isolated from Node.js. A restricted custom protocol serves bundled assets, navigation and browser permissions are denied, and the main process accepts storage requests only from the editor's main frame. Saved documents have structure and size limits. Packaged builds disable unused Electron features and validate the ASAR archive.
+
+Local writes are queued, atomic and asynchronous; a cache avoids reparsing the whole library on each edit. Run `pnpm bench:storage` to measure storage performance on your computer. The release workflow runs tests and audits production dependencies before packaging. The installer remains unsigned until a verified publisher certificate or Artifact Signing account is configured.
 
 ## A quick workflow
 
