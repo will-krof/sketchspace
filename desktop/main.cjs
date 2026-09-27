@@ -14,7 +14,6 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'sketchspace', privileges: { sta
 app.setAppUserModelId('com.willkrof.sketchspace');
 
 let window;
-let splash;
 let updaterState = { status: 'idle', version: app.getVersion() };
 let checkRunning = false;
 
@@ -73,21 +72,10 @@ function registerAssets() {
 
 function createWindows() {
   const icon = path.resolve(__dirname, '..', 'assets', 'icon.png');
-  splash = new BrowserWindow({ width: 420, height: 280, frame: false, resizable: false, center: true,
-    show: true, backgroundColor: '#17212b', icon, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false } });
-  splash.loadURL(`${APP_URL}splash.html`);
   window = new BrowserWindow({ width: 1520, height: 960, minWidth: 1050, minHeight: 680, show: false,
-    title: 'Sketchspace', backgroundColor: '#f2f5f5', icon, autoHideMenuBar: true,
+    title: 'Sketchspace', backgroundColor: '#17212b', icon, autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), sandbox: true, contextIsolation: true, nodeIntegration: false } });
-  const started = Date.now();
-  window.once('ready-to-show', () => {
-    setTimeout(() => {
-      if (window?.isDestroyed()) return;
-      window.show();
-      if (splash && !splash.isDestroyed()) splash.close();
-      splash = null;
-    }, Math.max(0, 1000 - (Date.now() - started)));
-  });
+  window.once('ready-to-show', () => window?.show());
   window.loadURL(APP_URL);
   window.on('closed', () => { window = null; });
 }

@@ -19,7 +19,7 @@
     "appId": "com.willkrof.sketchspace",
     "productName": "Sketchspace",
     "directories": { "output": "release" },
-    "files": ["desktop/**/*", "dist/index.html", "dist/splash.html", "dist/*.css", "dist/app.js", "dist/icons/**/*", "assets/icon.png"],
+    "files": ["desktop/**/*", "dist/index.html", "dist/*.css", "dist/app.js", "dist/icons/**/*", "assets/icon.png"],
     "asar": true,
     "win": { "target": ["nsis"], "icon": "assets/icon.ico" },
     "nsis": { "oneClick": true, "perMachine": false, "createDesktopShortcut": true, "createStartMenuShortcut": true, "artifactName": "Sketchspace-Setup-${version}.exe" },

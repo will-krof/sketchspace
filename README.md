@@ -22,7 +22,11 @@ Download and run `Sketchspace-Setup-*.exe` from the [latest release](https://git
 irm https://raw.githubusercontent.com/will-krof/sketchspace/main/scripts/install.ps1 | iex
 ```
 
-The script downloads the latest installer from GitHub Releases, verifies its SHA-512 checksum, and runs it. An internet connection is needed for installation and update checks. The editor and your saved wireframes work offline. Windows may warn about an unsigned installer until code signing is configured.
+The script downloads the latest installer from GitHub Releases, verifies its SHA-512 checksum, and runs it. An internet connection is needed for installation and update checks. The editor and your saved wireframes work offline.
+
+### Windows SmartScreen
+
+The current GitHub installer is **unsigned**, so Windows may show “Windows protected your PC.” A SHA-512 checksum verifies the downloaded file against the published release, but it does not establish a trusted publisher identity. Code signing requires a verified publisher and a trusted signing certificate or Microsoft Artifact Signing account. Once available, add `WIN_CSC_LINK` and `WIN_CSC_KEY_PASSWORD` as GitHub Actions secrets; the release workflow will sign the installer and fail if the resulting signature is invalid. Even signed new releases can show a SmartScreen prompt until publisher or file reputation builds. [Microsoft explains how SmartScreen reputation works](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation).
 
 ## Made for the first draft
 
@@ -52,6 +56,8 @@ The installed app checks GitHub Releases at startup and every 30 minutes while i
 Each push to `main` runs the Windows release workflow. It builds and tests the app, gives it a new version, publishes a GitHub Release with the installer and update metadata, and makes that release available to installed copies. A failed workflow does not publish an update.
 
 Wireframes are saved to a local JSON file in Electron's `userData` directory. They are not uploaded to GitHub or synchronized between computers. To move work from the earlier web editor, export each wireframe as JSON there and import it through **My wireframes** in the desktop app.
+
+The desktop app uses one editor window with an animated loading overlay. On an idle Windows system, several Sketchspace processes in Task Manager are expected because Electron separates the app, renderer, GPU and utility work. Keep the Chromium sandbox enabled; forcing a single process would weaken isolation. The update check runs at startup and every 30 minutes, and there is no continuous background rendering loop.
 
 ## A quick workflow
 

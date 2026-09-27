@@ -226,6 +226,7 @@
     $('#saveStatus').textContent = activeId ? 'Saved' : 'No wireframe selected';
   }
   async function initialize() {
+    const started = performance.now();
     try {
       const data = await apiRequest('/api/wireframes');
       library = data.items.map(item => ({ id: item.id, title: item.title, document: normalize(item.document), updatedAt: item.updatedAt }));
@@ -243,7 +244,10 @@
       document.body.classList.add('storage-error'); $('#loadingMessage').textContent = 'Could not load your wireframes.';
       $('#libraryButton').disabled = true;
       $('#newWireframe').disabled = true;
-    } finally { document.body.classList.remove('loading'); }
+    } finally {
+      if (window.sketchspaceDesktop) await new Promise(resolve => setTimeout(resolve, Math.max(0, 350 - (performance.now() - started))));
+      document.body.classList.remove('loading');
+    }
   }
   function snapshot() { undo.push(JSON.stringify(doc)); if (undo.length > 60) undo.shift(); redo.length = 0; updateHistory(); }
   function updateHistory() { $('#undoBtn').disabled = !undo.length; $('#redoBtn').disabled = !redo.length; }

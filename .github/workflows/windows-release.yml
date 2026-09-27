@@ -30,7 +30,18 @@ jobs:
           pnpm build
           pnpm test
       - name: Package Windows installer
-        run: pnpm desktop:dist
+        shell: pwsh
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: |
+          if ([bool]$env:WIN_CSC_LINK -ne [bool]$env:WIN_CSC_KEY_PASSWORD) { throw 'Both code signing secrets are required.' }
+          pnpm desktop:dist
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $installer = Get-ChildItem release/Sketchspace-Setup-*.exe | Select-Object -First 1
+          $signature = Get-AuthenticodeSignature $installer.FullName
+          if ($env:WIN_CSC_LINK -and $signature.Status -ne 'Valid') { throw "Expected a valid installer signature; got $($signature.Status)." }
+          if (-not $env:WIN_CSC_LINK) { Write-Host '::warning::Installer is unsigned and may trigger SmartScreen. Configure code signing secrets to sign future releases.' }
       - name: Checksum and publish GitHub Release
         shell: pwsh
         env:
