@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, net, protocol, session } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, net, protocol, session, Tray } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -14,7 +14,36 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'sketchspace', privileges: { sta
 app.setAppUserModelId('com.willkrof.sketchspace');
 
 let window;
+let tray;
+let quitting = false;
 let updaterState = { status: 'idle', version: app.getVersion() };
+
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) app.quit();
+
+function showWindow() {
+  if (!window || window.isDestroyed()) { createWindow(); return; }
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
+}
+
+function quitApp() {
+  quitting = true;
+  app.quit();
+}
+
+function createTray() {
+  tray = new Tray(path.resolve(__dirname, '..', 'assets', 'icon.ico'));
+  tray.setToolTip('Sketchspace');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Open Sketchspace', click: showWindow },
+    { type: 'separator' },
+    { label: 'Quit Sketchspace', click: quitApp }
+  ]));
+  tray.on('click', showWindow);
+  tray.on('double-click', showWindow);
+}
 let checkRunning = false;
 
 function publishUpdate(state) {
@@ -70,17 +99,22 @@ function registerAssets() {
   });
 }
 
-function createWindows() {
+function createWindow() {
   const icon = path.resolve(__dirname, '..', 'assets', 'icon.png');
   window = new BrowserWindow({ width: 1520, height: 960, minWidth: 1050, minHeight: 680, show: false,
     title: 'Sketchspace', backgroundColor: '#17212b', icon, autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), sandbox: true, contextIsolation: true, nodeIntegration: false } });
   window.once('ready-to-show', () => window?.show());
   window.loadURL(APP_URL);
+  window.on('close', event => {
+    if (quitting) return;
+    event.preventDefault();
+    window.hide();
+  });
   window.on('closed', () => { window = null; });
 }
 
-app.whenReady().then(() => {
+if (hasSingleInstanceLock) app.whenReady().then(() => {
   registerAssets();
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, respond) => respond(false));
   app.on('web-contents-created', (_event, contents) => {
@@ -97,15 +131,18 @@ app.whenReady().then(() => {
   ipcMain.handle('updates:state', event => { fromEditor(event); return updaterState; });
   ipcMain.handle('updates:action', async event => {
     fromEditor(event);
-    if (updaterState.status === 'ready') { autoUpdater.quitAndInstall(); return; }
+    if (updaterState.status === 'ready') { quitting = true; autoUpdater.quitAndInstall(); return; }
     if (updaterState.status !== 'available') return;
     publishUpdate({ status: 'downloading', percent: 0, message: '' });
     try { await autoUpdater.downloadUpdate(); }
     catch (error) { publishUpdate({ status: 'available', message: 'Download failed. Try again.' }); throw error; }
   });
-  createWindows();
+  createTray();
+  createWindow();
   configureUpdates();
-  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindows(); });
+  app.on('activate', showWindow);
 });
 
-app.on('window-all-closed', () => app.quit());
+app.on('second-instance', showWindow);
+app.on('before-quit', () => { quitting = true; });
+app.on('window-all-closed', () => {});

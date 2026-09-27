@@ -51,13 +51,15 @@ The screenshots use fictional demo wireframes.
 
 ## Updates and local data
 
-The installed app checks GitHub Releases at startup and every 30 minutes while it is open. When a newer version is published, an **Update** button appears in the top bar. Click it to download the update, then click **Restart to update**. Update checks require internet access; an offline check does not interrupt editing.
+The installed app checks GitHub Releases at startup and every 30 minutes while it is running. When a newer version is published, an **Update** button appears in the top bar. Click it to download the update, then click **Restart to update**. Update checks require internet access; an offline check does not interrupt editing.
+
+Closing the window keeps Sketchspace running in the Windows notification area. Click its tray icon or choose **Open Sketchspace** from the tray menu to return to the editor. Choose **Quit Sketchspace** from that menu to exit completely. Opening Sketchspace again while it is running brings the existing window forward.
 
 Each push to `main` runs the Windows release workflow. It builds and tests the app, gives it a new version, publishes a GitHub Release with the installer and update metadata, and makes that release available to installed copies. A failed workflow does not publish an update.
 
 Wireframes are saved to a local JSON file in Electron's `userData` directory. They are not uploaded to GitHub or synchronized between computers. To move work from the earlier web editor, export each wireframe as JSON there and import it through **My wireframes** in the desktop app.
 
-The desktop app uses one editor window with an animated loading overlay. On an idle Windows system, several Sketchspace processes in Task Manager are expected because Electron separates the app, renderer, GPU and utility work. Keep the Chromium sandbox enabled; forcing a single process would weaken isolation. The update check runs at startup and every 30 minutes, and there is no continuous background rendering loop.
+The desktop app uses one editor window with an animated loading overlay that fades when the editor is ready. On an idle Windows system, several Sketchspace processes in Task Manager are expected because Electron separates the app, renderer, GPU and utility work. Keep the Chromium sandbox enabled; forcing a single process would weaken isolation. The update check runs at startup and every 30 minutes, including while the window is hidden in the tray; there is no continuous background rendering loop.
 
 ## A quick workflow
 
