@@ -40,3 +40,22 @@ test('invalid or oversized documents cannot replace local data', async t => {
   assert.throws(() => store.update(first.id, huge), /too large/);
   assert.equal((await store.list()).items[0].title, 'Safe');
 });
+
+test('font, breadcrumb, and progress settings survive local storage validation', async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'sketchspace-store-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const store = storage.createStore(directory);
+  const wireframe = document('Styled');
+  wireframe.pages.desktop.items = [
+    { id: 'crumb', type: 'breadcrumb', x: 0, y: 0, w: 280, h: 35, text: 'Start › Work', breadcrumbFullText: true, fontFamily: 'Georgia' },
+    { id: 'bar', type: 'progress', x: 0, y: 50, w: 270, h: 28, text: '75%', progress: 75, fontFamily: 'Segoe UI' }
+  ];
+  const entry = await store.create(wireframe);
+  assert.deepEqual((await storage.createStore(directory).list()).items[0].document.pages.desktop.items, wireframe.pages.desktop.items);
+  const invalidFont = structuredClone(wireframe);
+  invalidFont.pages.desktop.items[0].fontFamily = 'url(evil)';
+  assert.throws(() => store.update(entry.id, invalidFont), /Invalid wireframe/);
+  const invalidProgress = structuredClone(wireframe);
+  invalidProgress.pages.desktop.items[1].progress = 999;
+  assert.throws(() => store.update(entry.id, invalidProgress), /Invalid wireframe/);
+});

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, net, protocol, session, Tray } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, net, protocol, session, shell, Tray } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -131,6 +131,12 @@ if (hasSingleInstanceLock) app.whenReady().then(() => {
   ipcMain.handle('wireframes:create', (event, document) => { fromEditor(event); return store.create(document); });
   ipcMain.handle('wireframes:update', (event, id, document) => { fromEditor(event); return store.update(id, document); });
   ipcMain.handle('wireframes:remove', (event, id) => { fromEditor(event); return store.remove(id); });
+  ipcMain.handle('wireframes:show-in-folder', event => {
+    fromEditor(event);
+    const file = path.join(app.getPath('userData'), 'wireframes.json');
+    if (!fs.existsSync(file)) throw Error('Local wireframe file not found.');
+    shell.showItemInFolder(file);
+  });
   ipcMain.handle('updates:state', event => { fromEditor(event); return updaterState; });
   ipcMain.handle('updates:action', async event => {
     fromEditor(event);

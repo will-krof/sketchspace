@@ -103,6 +103,13 @@
 .library-icon-action img{display:block;width:16px;height:16px}
 .library-actions .library-icon-action:disabled{opacity:.35}
 .library-actions .library-delete img{filter:invert(39%) sepia(36%) saturate(851%) hue-rotate(310deg) brightness(95%)}
+.canvas-item,.canvas-item .content,.canvas-item .content *{font-family:var(--item-font-family,"Comic Sans MS",sans-serif)!important}
+.canvas-item.progress .progress-track:after{display:none}
+.canvas-item.progress .progress-fill{display:block;height:100%;background:#a9c34c}
+.inspector select{width:100%;min-height:38px;border:1px solid #d3dce1;border-radius:7px;color:#2d3943;background:#fbfcfc;padding:8px 10px;font-size:.83rem}
+.progress-options{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
+.progress-options button{min-height:35px;padding:4px 2px;border:1px solid #d3dde1;border-radius:7px;background:#f8faf9;color:#354751;font-size:.72rem;font-weight:750}
+.progress-options button:hover{background:#eef4d9}.progress-options button[aria-pressed="true"]{background:#e9f4b5;border-color:#a9c34c;color:#263426}
 .library-details .saved-canvas-menu{margin-top:8px;padding-top:7px}
 .library-details .saved-canvas-menu button{min-height:30px;font-size:.7rem}
 @media(max-width:800px){.palette-search{margin:0 3px 9px}.tool-list{max-height:88px}.inspector{overflow:visible}}

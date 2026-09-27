@@ -32,7 +32,7 @@ The current GitHub installer is **unsigned**, so Windows may show “Windows pro
 
 | Build | Refine | Keep |
 | --- | --- | --- |
-| Search **97 elements** across basics, navigation, forms, content, devices and icons. | Edit text, list entries, dropdown options and table cells. Resize, zoom and arrange layers. | Save up to **10 wireframes locally**. Rename, delete, import JSON, or export JSON and PNG. |
+| Search **97 elements** across basics, navigation, forms, content, devices and icons. | Edit breadcrumbs, list entries, dropdown options and table cells. Choose progress levels and a font for each element. Resize, zoom and arrange layers. | Save up to **10 wireframes locally**. Rename, delete, reveal the storage file, import JSON, or export JSON and PNG. |
 
 Sketchspace has desktop, tablet and mobile canvases, along with iPhone, Samsung and tablet frames. Its monochrome icon palette contains common interface symbols and familiar service marks.
 
@@ -58,6 +58,8 @@ Closing the window keeps Sketchspace running in the Windows notification area. C
 Each push to `main` runs the Windows release workflow. It builds and tests the app, gives it a new version, publishes a GitHub Release with the installer and update metadata, and makes that release available to installed copies. A failed workflow does not publish an update.
 
 Wireframes are saved to a local JSON file in Electron's `userData` directory. They are not uploaded to GitHub or synchronized between computers. To move work from the earlier web editor, export each wireframe as JSON there and import it through **My wireframes** in the desktop app.
+
+The folder icon in **My wireframes** opens Windows Explorer with `wireframes.json` selected. All wireframes on that computer are stored in this one file.
 
 The desktop app uses one editor window with an animated loading overlay that fades when the editor is ready. On Windows it uses software compositing to reduce intermittent whole-window flashes associated with some GPU and driver combinations. Several Sketchspace processes in Task Manager are still expected because Electron separates the app, renderer and utility work. Keep the Chromium sandbox enabled; forcing a single process would weaken isolation. The update check runs at startup and every 30 minutes, including while the window is hidden in the tray; there is no continuous background rendering loop.
 

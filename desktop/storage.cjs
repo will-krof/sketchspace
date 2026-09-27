@@ -5,6 +5,8 @@ const { randomUUID } = require('node:crypto');
 const MAX_BYTES = 250000;
 const MAX_WIREFRAMES = 10;
 const DEVICES = ['desktop', 'tablet', 'mobile'];
+const FONTS = new Set(['Comic Sans MS', 'Arial', 'Verdana', 'Georgia', 'Times New Roman', 'Trebuchet MS', 'Courier New', 'Segoe UI']);
+const PROGRESS_VALUES = new Set([5, 20, 50, 75, 100]);
 const TYPES = new Set(`heading text label button link box divider icon navbar tabs breadcrumb sidebar pagination menubutton input textarea search dropdown checkbox radio toggle slider card image avatar badge list table progress alert browserbar hero modal toolbar appbar splitview bottombar statusbar mobileheader bottomnav fab iphoneframe samsungframe tabletframe ui_house ui_search ui_menu ui_arrow-left ui_arrow-right ui_chevron-down ui_map-pin ui_external-link ui_plus ui_minus ui_check ui_x ui_pencil ui_trash ui_save ui_download ui_upload ui_share-2 ui_copy ui_funnel ui_ellipsis ui_user ui_users ui_mail ui_message-circle ui_phone ui_bell ui_image ui_calendar ui_clock ui_heart ui_star ui_info ui_circle-alert ui_lock ui_shopping-cart ui_settings ui_eye ui_bookmark brand_google brand_youtube brand_instagram brand_facebook brand_whatsapp brand_telegram brand_tiktok brand_spotify brand_github brand_discord brand_figma brand_notion brand_netflix brand_x`.split(' '));
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const text = (value, max) => typeof value === 'string' && value.length <= max;
@@ -15,6 +17,9 @@ function validItem(item) {
   if (!object(item) || !text(item.id, 60) || !item.id || !TYPES.has(item.type) || !text(item.text, 500)) return false;
   if (!number(item.w, 24, 960) || !number(item.h, 12, 1024) || !number(item.x, 0, 960 - item.w) || !number(item.y, 0, 1024 - item.h)) return false;
   if (item.fontSize !== undefined && !number(item.fontSize, 7, 72)) return false;
+  if (item.fontFamily !== undefined && !FONTS.has(item.fontFamily)) return false;
+  if (item.type === 'progress' && item.progress !== undefined && !PROGRESS_VALUES.has(item.progress)) return false;
+  if (item.type === 'breadcrumb' && item.breadcrumbFullText !== undefined && item.breadcrumbFullText !== true) return false;
   if (item.fontBaseW !== undefined && !number(item.fontBaseW, 24, 960)) return false;
   if (item.fontBaseH !== undefined && !number(item.fontBaseH, 12, 1024)) return false;
   if (item.type === 'list' && item.items !== undefined && !labels(item.items, 12)) return false;

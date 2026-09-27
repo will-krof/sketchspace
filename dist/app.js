@@ -29,7 +29,7 @@
     icon: { name: 'Icon', icon: '☆', category: 'basic', w: 54, h: 54, text: '☆' },
     navbar: { name: 'Navigation bar', icon: '☷', category: 'navigation', w: 470, h: 58, text: 'Brand' },
     tabs: { name: 'Tabs', icon: '▤', category: 'navigation', w: 310, h: 48, text: 'Overview' },
-    breadcrumb: { name: 'Breadcrumbs', icon: '›', category: 'navigation', w: 270, h: 35, text: 'Current page' },
+    breadcrumb: { name: 'Breadcrumbs', icon: '›', category: 'navigation', w: 270, h: 35, text: 'Home  ›  Section  ›  Current page' },
     sidebar: { name: 'Sidebar', icon: '▥', category: 'navigation', w: 210, h: 300, text: 'Menu' },
     pagination: { name: 'Pagination', icon: '①', category: 'navigation', w: 190, h: 36, text: '' },
     menubutton: { name: 'Menu button', icon: '☰', category: 'navigation', w: 48, h: 44, text: '☰' },
@@ -47,7 +47,7 @@
     badge: { name: 'Badge', icon: '▰', category: 'content', w: 95, h: 32, text: 'New' },
     list: { name: 'List', icon: '☷', category: 'content', w: 265, h: 150, text: 'First item' },
     table: { name: 'Table', icon: '▦', category: 'content', w: 360, h: 180, text: 'Name' },
-    progress: { name: 'Progress bar', icon: '▰', category: 'content', w: 270, h: 28, text: '65%' },
+    progress: { name: 'Progress bar', icon: '▰', category: 'content', w: 270, h: 28, text: '50%' },
     alert: { name: 'Alert', icon: '!', category: 'content', w: 290, h: 80, text: 'Something to keep in mind' },
     browserbar: { name: 'Browser bar', icon: '▤', category: 'device', devices: ['desktop'], w: 550, h: 46, text: 'example.com' },
     hero: { name: 'Hero section', icon: '▣', category: 'device', devices: ['desktop'], w: 510, h: 240, text: 'A clear headline' },
@@ -84,6 +84,9 @@
   const TABLE_DEFAULTS = [['Name', 'Status', 'Date'], ['Item one', 'Active', 'Today'], ['Item two', 'Draft', 'Yesterday'], ['Item three', 'Done', 'Monday']];
   const LIST_DEFAULTS = ['First item', 'Second item', 'Third item'];
   const DROPDOWN_DEFAULTS = ['First option', 'Second option', 'Third option'];
+  const PROGRESS_VALUES = [5, 20, 50, 75, 100];
+  const FONT_FAMILIES = ['Comic Sans MS', 'Arial', 'Verdana', 'Georgia', 'Times New Roman', 'Trebuchet MS', 'Courier New', 'Segoe UI'];
+  const DEFAULT_FONT = FONT_FAMILIES[0];
   const FONT_DEFAULTS = {
     heading: 31, text: 17, label: 14, button: 16, link: 16, icon: 32, navbar: 14, tabs: 14,
     breadcrumb: 14, sidebar: 17, menubutton: 17, input: 15, textarea: 15, search: 15, dropdown: 15,
@@ -151,10 +154,18 @@
           ? ELEMENTS.dropdown.h : number(v.h, ELEMENTS[v.type].h), 12, preset.h);
         const item = { id: String(v.id || `item-${index}`).slice(0, 60), type: v.type,
           x: clamp(number(v.x, 0), 0, preset.w - w), y: clamp(number(v.y, 0), 0, preset.h - h),
-          w, h, text: String(v.text ?? '').slice(0, 500),
+          w, h, text: v.type === 'breadcrumb' && !v.breadcrumbFullText && typeof v.text === 'string' && !v.text.includes('›')
+            ? `Home  ›  Section  ›  ${v.text}`.slice(0, 500) : String(v.text ?? ELEMENTS[v.type].text).slice(0, 500),
           fontSize: clamp(number(v.fontSize, defaultFontSize(v.type)), 7, 72),
+          fontFamily: FONT_FAMILIES.includes(v.fontFamily) ? v.fontFamily : DEFAULT_FONT,
           fontBaseW: clamp(number(v.fontBaseW, w), 24, preset.w),
           fontBaseH: clamp(number(v.fontBaseH, h), 12, preset.h) };
+        if (v.type === 'breadcrumb') item.breadcrumbFullText = true;
+        if (v.type === 'progress') {
+          item.progress = PROGRESS_VALUES.includes(v.progress) ? v.progress
+            : PROGRESS_VALUES.includes(Number.parseInt(v.text, 10)) ? Number.parseInt(v.text, 10) : 50;
+          item.text = `${item.progress}%`;
+        }
         if (v.type === 'table') item.cells = TABLE_DEFAULTS.map((row, r) => row.map((fallback, c) => String(v.cells?.[r]?.[c] ?? (r === 0 && c === 0 ? item.text || fallback : fallback)).slice(0, 120)));
         if (v.type === 'list') item.items = (Array.isArray(v.items) && v.items.length ? v.items : [item.text || LIST_DEFAULTS[0], ...LIST_DEFAULTS.slice(1)]).slice(0, 12).map(entry => String(entry).slice(0, 120));
         if (v.type === 'dropdown') item.options = (Array.isArray(v.options) && v.options.length ? v.options : DROPDOWN_DEFAULTS).slice(0, 10).map(entry => String(entry).slice(0, 120));
@@ -309,7 +320,7 @@
       case 'box': content.append(el('span', '', t)); break;
       case 'navbar': content.append(el('strong', '', t), el('span', 'nav-links', 'Home    About    Contact')); break;
       case 'tabs': for (const label of [t, 'Details', 'Reviews']) content.append(el('span', 'tab', label)); break;
-      case 'breadcrumb': content.textContent = `Home  ›  Section  ›  ${t}`; break;
+      case 'breadcrumb': content.textContent = t; break;
       case 'sidebar': content.append(el('div', 'side-title', t)); for (let i = 0; i < 5; i++) content.append(el('div', 'side-line')); break;
       case 'pagination': for (const label of ['‹', '1', '2', '3', '›']) content.append(el('span', 'page-pill', label)); break;
       case 'search': content.append(el('span', 'field-symbol', '⌕'), el('span', '', t)); break;
@@ -324,7 +335,11 @@
       case 'slider': content.append(el('span', 'slider-track')); break;
       case 'list': for (const label of item.items || LIST_DEFAULTS) { const row = el('div', 'list-row'); row.append(el('span', 'row-bullet'), document.createTextNode(label)); content.append(row); } break;
       case 'table': for (const rowText of item.cells || TABLE_DEFAULTS.map((row, r) => r === 0 ? [t || row[0], ...row.slice(1)] : row)) { const row = el('div', 'table-row'); rowText.forEach(cell => row.append(el('span', '', cell))); content.append(row); } break;
-      case 'progress': content.append(el('span', 'progress-track'), el('span', '', t)); break;
+      case 'progress': {
+        const track = el('span', 'progress-track');
+        const fill = el('span', 'progress-fill'); fill.style.width = `${item.progress ?? 50}%`;
+        track.append(fill); content.append(track, el('span', '', `${item.progress ?? 50}%`)); break;
+      }
       case 'browserbar': content.append(el('span', 'browser-dots', '● ● ●'), el('span', 'url-pill', t)); break;
       case 'hero': content.append(el('div', 'hero-title', t), el('div', 'hero-line'), el('div', 'hero-line')); break;
       case 'modal': { content.append(el('div', 'modal-title', t)); const lines = el('div', 'modal-lines'); lines.append(el('i'), el('i')); content.append(lines, el('div', 'modal-action', 'Continue')); break; }
@@ -348,6 +363,7 @@
       node.style.width = `${item.w}px`; node.style.height = `${item.h}px`;
       node.style.zIndex = String(index + 1);
       node.style.setProperty('--item-font-size', `${effectiveFontSize(item)}px`);
+      node.style.setProperty('--item-font-family', `"${item.fontFamily || DEFAULT_FONT}", sans-serif`);
       node.style.setProperty('--item-inset', `${Math.max(3, Math.round(17 * Math.min(1, item.w / (item.fontBaseW || item.w), item.h / (item.fontBaseH || item.h))))}px`);
       node.setAttribute('role', 'button'); node.tabIndex = 0; node.setAttribute('aria-pressed', String(selection.has(item.id)));
       node.setAttribute('aria-label', `${ELEMENTS[item.type].name}: ${item.text || 'no text'}`);
@@ -384,7 +400,21 @@
     else symbol.textContent = ELEMENTS[item.type].icon;
     heading.append(symbol, document.createTextNode(ELEMENTS[item.type].name)); inspector.append(heading);
     if (hasText(item.type)) {
-      if (item.type === 'list' || item.type === 'dropdown') {
+      if (item.type === 'progress') {
+        inspector.append(el('span', 'field-label', 'Progress'));
+        const choices = el('div', 'progress-options');
+        for (const value of PROGRESS_VALUES) {
+          const button = el('button', '', `${value}%`); button.type = 'button';
+          button.setAttribute('aria-pressed', String((item.progress ?? 50) === value));
+          button.addEventListener('click', () => {
+            if (item.progress === value) return;
+            snapshot(); item.progress = value; item.text = `${value}%`;
+            refreshItem(item); renderInspector(); save();
+          });
+          choices.append(button);
+        }
+        inspector.append(choices);
+      } else if (item.type === 'list' || item.type === 'dropdown') {
         const isList = item.type === 'list', key = isList ? 'items' : 'options';
         if (!isList) {
           const label = el('label', 'field-label', 'Selected text'); label.htmlFor = 'itemText'; inspector.append(label);
@@ -468,6 +498,15 @@
       });
       inspector.append(fontInput);
     }
+    const fontLabel = el('label', 'field-label', 'Font'); fontLabel.htmlFor = 'itemFontFamily'; inspector.append(fontLabel);
+    const fontSelect = el('select'); fontSelect.id = 'itemFontFamily'; fontSelect.setAttribute('aria-label', 'Element font');
+    for (const family of FONT_FAMILIES) { const option = el('option', '', family); option.value = family; fontSelect.append(option); }
+    fontSelect.value = item.fontFamily || DEFAULT_FONT;
+    fontSelect.addEventListener('change', () => {
+      if (item.fontFamily === fontSelect.value) return;
+      snapshot(); item.fontFamily = fontSelect.value; refreshItem(item); save();
+    });
+    inspector.append(fontSelect);
     inspector.append(el('hr'));
     const grid = el('div', 'field-grid'); const bounds = size();
     for (const [key, name] of [['x','X'],['y','Y'],['w','Width'],['h','Height']]) {
@@ -541,6 +580,11 @@
       const open = el('button', 'library-open', entry.id === activeId ? 'Editing' : 'Open'); open.type = 'button'; open.disabled = entry.id === activeId;
       open.addEventListener('click', async () => { try { await flushSave(); activate(entry); $('#libraryDialog').close(); } catch (_) {} });
       actions.append(open);
+      if (window.sketchspaceDesktop?.storage.showInFolder) {
+        actions.append(libraryIconButton('Show local wireframe file in folder', 'folder', () => {
+          window.sketchspaceDesktop.storage.showInFolder().catch(error => toast(error.message || 'Could not open the folder.'));
+        }));
+      }
       if (entry.id === activeId) {
         details.append(renderSavedCanvasMenu());
         const importButton = libraryIconButton('Import JSON', 'upload', () => { if (library.length >= 10) { toast('You can save up to 10 wireframes'); return; } $('#fileInput').click(); });
@@ -632,7 +676,9 @@
     snapshot();
     const item = { id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, type,
       x: Math.round(clamp(px, 0, bounds.w - w)), y: Math.round(clamp(py, 0, bounds.h - h)), w, h, text: def.text,
-      fontSize: defaultFontSize(type), fontBaseW: w, fontBaseH: h };
+      fontSize: defaultFontSize(type), fontFamily: DEFAULT_FONT, fontBaseW: w, fontBaseH: h };
+    if (type === 'progress') item.progress = 50;
+    if (type === 'breadcrumb') item.breadcrumbFullText = true;
     if (type === 'table') item.cells = clone(TABLE_DEFAULTS);
     if (type === 'list') item.items = clone(LIST_DEFAULTS);
     if (type === 'dropdown') item.options = clone(DROPDOWN_DEFAULTS);
@@ -653,11 +699,13 @@
     const c = output.getContext('2d'); if (!c) { toast('Could not export PNG'); return; }
     c.scale(2, 2); c.fillStyle = '#ffffff'; c.fillRect(0, 0, bounds.w, bounds.h);
     const ink = '#35414b', muted = '#75858e', pale = '#f3f6f5';
+    let exportFontFamily = DEFAULT_FONT;
+    const exportFont = font => font.replace(/(?:Trebuchet MS, )?sans-serif/g, `"${exportFontFamily}", sans-serif`);
     const rect = (x, y, w, h, fill = '#fff', stroke = ink) => { c.fillStyle = fill; c.fillRect(x, y, w, h); if (stroke) { c.strokeStyle = stroke; c.lineWidth = 2; c.strokeRect(x, y, w, h); } };
     const line = (x1, y1, x2, y2, color = ink, width = 2) => { c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.strokeStyle = color; c.lineWidth = width; c.stroke(); };
-    const write = (text, x, y, font = '16px Trebuchet MS, sans-serif', color = ink, max = 500, align = 'left') => { c.fillStyle = color; c.font = font; c.textAlign = align; c.textBaseline = 'middle'; c.fillText(String(text), x, y, max); };
+    const write = (text, x, y, font = '16px Trebuchet MS, sans-serif', color = ink, max = 500, align = 'left') => { c.fillStyle = color; c.font = exportFont(font); c.textAlign = align; c.textBaseline = 'middle'; c.fillText(String(text), x, y, max); };
     const wrapped = (text, x, y, maxWidth, lineHeight, maxY, font = '16px Trebuchet MS, sans-serif', color = ink) => {
-      c.font = font; c.fillStyle = color; c.textAlign = 'left'; c.textBaseline = 'top';
+      c.font = exportFont(font); c.fillStyle = color; c.textAlign = 'left'; c.textBaseline = 'top';
       for (const paragraph of String(text).split('\n')) {
         let row = '';
         for (const word of paragraph.split(/\s+/)) {
@@ -669,6 +717,7 @@
     };
     for (const item of page()) {
       const { x, y, w, h, text: t, type } = item;
+      exportFontFamily = FONT_FAMILIES.includes(item.fontFamily) ? item.fontFamily : DEFAULT_FONT;
       const fontSize = effectiveFontSize(item);
       c.save();
       if (type === 'heading') wrapped(t, x, y, w, fontSize * 1.25, y + h, `bold ${fontSize}px Trebuchet MS, sans-serif`);
@@ -704,7 +753,7 @@
       else if (type === 'slider') { line(x, y + h / 2, x + w, y + h / 2, '#9cabb3', 4); rect(x + w * .45, y + h / 2 - 8, 16, 16, '#fff'); }
       else if (type === 'avatar') { c.beginPath(); c.arc(x + w / 2, y + h / 2, Math.min(w, h) / 2 - 2, 0, Math.PI * 2); c.fillStyle = '#dce5e8'; c.fill(); c.strokeStyle = ink; c.lineWidth = 2; c.stroke(); write(t.slice(0, 3), x + w / 2, y + h / 2, `bold ${fontSize}px sans-serif`, ink, w, 'center'); }
       else if (type === 'badge') { rect(x, y, w, h, '#edf3dc'); write(t, x + w / 2, y + h / 2, `bold ${fontSize}px sans-serif`, ink, w - 12, 'center'); }
-      else if (type === 'progress') { rect(x, y + 8, w - 45, 12, '#e4e9ea', '#a0adb4'); rect(x, y + 8, (w - 45) * .65, 12, '#a9c34c', null); write(t, x + w - 35, y + h / 2, `${fontSize}px sans-serif`); }
+      else if (type === 'progress') { const value = item.progress ?? 50; rect(x, y + 8, w - 45, 12, '#e4e9ea', '#a0adb4'); rect(x, y + 8, (w - 45) * value / 100, 12, '#a9c34c', null); write(`${value}%`, x + w - 35, y + h / 2, `${fontSize}px sans-serif`); }
       else if (type === 'alert') { rect(x, y, w, h, '#f5f7ed'); write('!', x + 16, y + 21, 'bold 22px sans-serif'); wrapped(t, x + 38, y + 13, w - 50, fontSize * 1.4, y + h - 8, `${fontSize}px sans-serif`); }
       else if (type === 'list') { const entries = item.items || LIST_DEFAULTS; rect(x, y, w, h); entries.forEach((label, i) => { if (i) line(x, y + h * i / entries.length, x + w, y + h * i / entries.length, '#cad2d6', 1); write('●', x + 12, y + h * (i + .5) / entries.length, '14px sans-serif', muted); write(label, x + 35, y + h * (i + .5) / entries.length, `${fontSize}px sans-serif`, ink, w - 45); }); }
       else if (type === 'table') { rect(x, y, w, h); rect(x, y, w, h / 4, '#edf1f2', null); for (let i = 1; i < 4; i++) line(x, y + h * i / 4, x + w, y + h * i / 4, '#adb9bf', 1); for (let i = 1; i < 3; i++) line(x + w * i / 3, y, x + w * i / 3, y + h, '#adb9bf', 1); const rows = item.cells || TABLE_DEFAULTS; rows.forEach((row, i) => row.forEach((cell, j) => write(cell, x + w * j / 3 + 7, y + h * (i + .5) / 4, `${i ? '' : 'bold '}${fontSize}px sans-serif`, ink, w / 3 - 12))); }
@@ -718,7 +767,7 @@
         if (type === 'toolbar') { write(t, x + 12, y + h / 2, `bold ${fontSize}px sans-serif`); ['↶', 'T', '▣', '⋯'].forEach((symbol, i) => { const bx = x + w - 148 + i * 34; rect(bx, y + 10, 27, h - 20, '#fff', '#8d9aa2'); write(symbol, bx + 13, y + h / 2, '15px sans-serif', ink, 24, 'center'); }); }
       }
       else if (type === 'tabs') { [t, 'Details', 'Reviews'].forEach((label, i) => { write(label, x + 12 + i * w / 3, y + h / 2, `${i ? '' : 'bold '}${fontSize}px sans-serif`, ink, w / 3 - 16); line(x + i * w / 3, y + h - 3, x + (i + 1) * w / 3 - 4, y + h - 3, i ? '#c7d0d4' : ink, 2); }); }
-      else if (type === 'breadcrumb') write(`Home  ›  Section  ›  ${t}`, x, y + h / 2, `${fontSize}px sans-serif`, muted, w);
+      else if (type === 'breadcrumb') write(t, x, y + h / 2, `${fontSize}px sans-serif`, muted, w);
       else if (type === 'sidebar') { rect(x, y, w, h, '#f7f9f8'); write(t, x + 14, y + 25, `bold ${fontSize}px sans-serif`); for (let i = 0; i < 5; i++) rect(x + 14, y + 55 + i * 42, w * (i % 2 ? .55 : .72), 11, '#c7d2d6', null); }
       else if (type === 'pagination') { ['‹', '1', '2', '3', '›'].forEach((label, i) => { rect(x + i * 36, y + 2, 30, h - 4, i === 1 ? '#e9f4b5' : '#fff', '#929fa6'); write(label, x + i * 36 + 15, y + h / 2, '13px sans-serif', ink, 25, 'center'); }); }
       else if (type === 'hero') { rect(x, y, w, h, '#f6f8f8'); write(t, x + 23, y + h / 2 - 36, `bold ${fontSize}px sans-serif`, ink, w - 46); rect(x + 23, y + h / 2 + 2, w * .64, 8, '#c9d3d6', null); rect(x + 23, y + h / 2 + 23, w * .53, 8, '#c9d3d6', null); }

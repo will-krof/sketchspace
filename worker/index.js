@@ -1,6 +1,8 @@
 const ASSETS = __EMBEDDED_ASSETS__;
 const MAX_DOCUMENT_BYTES = 250000;
 const DEVICES = new Set(['desktop', 'tablet', 'mobile']);
+const FONTS = new Set(['Comic Sans MS', 'Arial', 'Verdana', 'Georgia', 'Times New Roman', 'Trebuchet MS', 'Courier New', 'Segoe UI']);
+const PROGRESS_VALUES = new Set([5, 20, 50, 75, 100]);
 const ELEMENT_TYPES = new Set(`heading text label button link box divider icon navbar tabs breadcrumb sidebar pagination menubutton input textarea search dropdown checkbox radio toggle slider card image avatar badge list table progress alert browserbar hero modal toolbar appbar splitview bottombar statusbar mobileheader bottomnav fab iphoneframe samsungframe tabletframe ui_house ui_search ui_menu ui_arrow-left ui_arrow-right ui_chevron-down ui_map-pin ui_external-link ui_plus ui_minus ui_check ui_x ui_pencil ui_trash ui_save ui_download ui_upload ui_share-2 ui_copy ui_funnel ui_ellipsis ui_user ui_users ui_mail ui_message-circle ui_phone ui_bell ui_image ui_calendar ui_clock ui_heart ui_star ui_info ui_circle-alert ui_lock ui_shopping-cart ui_settings ui_eye ui_bookmark brand_google brand_youtube brand_instagram brand_facebook brand_whatsapp brand_telegram brand_tiktok brand_spotify brand_github brand_discord brand_figma brand_notion brand_netflix brand_x`.split(' '));
 const SECURITY_HEADERS = {
   'content-security-policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'",
@@ -25,6 +27,9 @@ function validItem(item) {
   const width = 960, height = 1024;
   if (!number(item.w, 24, width) || !number(item.h, 12, height) || !number(item.x, 0, width - item.w) || !number(item.y, 0, height - item.h)) return false;
   if (item.fontSize !== undefined && !number(item.fontSize, 7, 72)) return false;
+  if (item.fontFamily !== undefined && !FONTS.has(item.fontFamily)) return false;
+  if (item.type === 'progress' && item.progress !== undefined && !PROGRESS_VALUES.has(item.progress)) return false;
+  if (item.type === 'breadcrumb' && item.breadcrumbFullText !== undefined && item.breadcrumbFullText !== true) return false;
   if (item.fontBaseW !== undefined && !number(item.fontBaseW, 24, width)) return false;
   if (item.fontBaseH !== undefined && !number(item.fontBaseH, 12, height)) return false;
   if (item.type === 'list' && item.items !== undefined && !labels(item.items, 12)) return false;
