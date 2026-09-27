@@ -180,6 +180,16 @@
     return { title: 'My first wireframe', device: 'desktop', pages: { desktop: { items: clone(STARTER) }, tablet: { items: [] }, mobile: { items: [] } } };
   }
   async function apiRequest(path, method = 'GET', body) {
+    if (window.sketchspaceDesktop) {
+      const storage = window.sketchspaceDesktop.storage;
+      const match = /^\/api\/wireframes(?:\/([a-f0-9-]+))?$/.exec(path);
+      if (!match) throw Error('Invalid storage request.');
+      if (method === 'GET' && !match[1]) return storage.list();
+      if (method === 'POST' && !match[1]) return storage.create(body.document);
+      if (method === 'PUT' && match[1]) return storage.update(match[1], body.document);
+      if (method === 'DELETE' && match[1]) return storage.remove(match[1]);
+      throw Error('Invalid storage request.');
+    }
     const response = await fetch(path, { method, headers: body ? { 'content-type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw Error(data.error || 'Could not reach wireframe storage.');
@@ -239,6 +249,25 @@
   function updateHistory() { $('#undoBtn').disabled = !undo.length; $('#redoBtn').disabled = !redo.length; }
   function historyStep(from, to) { if (!from.length) return; const device = doc.device; to.push(JSON.stringify(doc)); doc = normalize(JSON.parse(from.pop())); selected = null; selection.clear(); titleInput.value = doc.title; render(); if (device !== doc.device) fitZoom(); save(); }
   function toast(message) { const target = $('#toast'); target.textContent = message; target.classList.add('visible'); clearTimeout(toastTimer); toastTimer = setTimeout(() => target.classList.remove('visible'), 2500); }
+
+  function setupDesktopUpdates() {
+    const desktop = window.sketchspaceDesktop;
+    if (!desktop) return;
+    const button = $('#updateButton');
+    const render = state => {
+      const visible = ['available', 'downloading', 'ready'].includes(state.status);
+      button.hidden = !visible;
+      if (!visible) return;
+      button.disabled = state.status === 'downloading';
+      button.textContent = state.status === 'ready' ? 'Restart to update'
+        : state.status === 'downloading' ? `Downloading ${state.percent || 0}%`
+          : `Update to v${state.version}`;
+      button.title = state.message || (state.status === 'ready' ? 'Install the downloaded update' : 'Download the latest release');
+    };
+    desktop.updates.onChange(render);
+    desktop.updates.state().then(render).catch(() => {});
+    button.addEventListener('click', () => desktop.updates.action().catch(error => toast(error.message || 'Update failed.')));
+  }
 
   function categoryTypes(id = category) {
     return Object.entries(ELEMENTS).filter(([, def]) => def.category === id);
@@ -824,7 +853,7 @@
   window.addEventListener('keyup', event => { if (event.code === 'Space') { spaceHeld = false; scroll.style.cursor = ''; } });
   window.addEventListener('blur', () => { drag = null; if (marquee) marquee.overlay.remove(); marquee = null; pan = null; spaceHeld = false; scroll.style.cursor = ''; });
 
-  document.body.classList.add('loading'); render(); fitZoom(); initialize();
+  document.body.classList.add('loading'); render(); fitZoom(); setupDesktopUpdates(); initialize();
   const context = document.modelContext;
   if (context?.registerTool) {
     const register = tool => { try { Promise.resolve(context.registerTool(tool)).catch(() => {}); } catch (_) {} };

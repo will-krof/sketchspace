@@ -1,14 +1,38 @@
 {
   "name": "sketchspace",
+  "version": "0.1.0",
+  "description": "A focused desktop wireframe editor for Windows",
+  "author": "will-krof",
   "private": true,
   "type": "module",
+  "main": "desktop/main.cjs",
   "scripts": {
     "build": "node scripts/build-site.cjs",
+    "desktop:dev": "electron .",
+    "desktop:pack": "electron-builder --win dir --publish never",
+    "desktop:dist": "electron-builder --win nsis --publish never",
+    "desktop:release": "electron-builder --win nsis --publish always",
+    "test": "node --test tests/*.test.*",
     "db:generate": "drizzle-kit generate"
+  },
+  "build": {
+    "appId": "com.willkrof.sketchspace",
+    "productName": "Sketchspace",
+    "directories": { "output": "release" },
+    "files": ["desktop/**/*", "dist/index.html", "dist/splash.html", "dist/*.css", "dist/app.js", "dist/icons/**/*", "assets/icon.png"],
+    "asar": true,
+    "win": { "target": ["nsis"], "icon": "assets/icon.ico" },
+    "nsis": { "oneClick": true, "perMachine": false, "createDesktopShortcut": true, "createStartMenuShortcut": true, "artifactName": "Sketchspace-Setup-${version}.exe" },
+    "publish": [{ "provider": "github", "owner": "will-krof", "repo": "sketchspace" }]
   },
   "devDependencies": {
     "drizzle-kit": "0.31.10",
     "drizzle-orm": "0.45.2",
+    "electron": "44.4.5",
+    "electron-builder": "26.15.3",
     "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "electron-updater": "6.8.9"
   }
 }

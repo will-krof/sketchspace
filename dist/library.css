@@ -29,6 +29,8 @@
 .library-footer span{font-size:.72rem;color:#89969e}
 .library-footer .primary-btn:disabled{opacity:.5;cursor:not-allowed}
 .loading-cover{display:none;position:fixed;inset:0;background:#eef1f3e8;z-index:80;place-items:center;text-align:center}
+.update-btn{border:1px solid #e4f47a;border-radius:8px;background:#e4f47a;color:#17212b;min-height:38px;padding:0 14px;font-size:.82rem;font-weight:800;white-space:nowrap}
+.update-btn:hover{background:#f0ffa4}.update-btn:disabled{opacity:.7;cursor:wait}.update-btn[hidden]{display:none}
 .loading-cover div{display:flex;flex-direction:column;gap:14px;align-items:center}
 .loading-cover strong{font-size:1rem;color:#35454f}
 .loading-cover button{display:none;border:0;background:#17212b;color:#fff;border-radius:7px;padding:9px 16px}
