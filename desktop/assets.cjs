@@ -16,7 +16,7 @@ function resolveAssetPath(requestUrl, method, root) {
   let pathname;
   try { pathname = decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname); }
   catch { return null; }
-  if (!pathname.startsWith('/') || pathname.includes('\0')) return null;
+  if (!pathname.startsWith('/') || pathname.includes('\0') || pathname.includes('\\')) return null;
   const file = path.resolve(root, `.${pathname}`);
   const relative = path.relative(root, file);
   if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return null;

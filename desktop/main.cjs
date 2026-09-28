@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, session, shell, Tray } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, net, protocol, session, shell, Tray } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -7,7 +7,17 @@ const { createStore } = require('./storage.cjs');
 
 const ROOT = path.resolve(__dirname, '..', 'dist');
 const APP_URL = 'sketchspace://app/';
-Menu.setApplicationMenu(null);
+app.setName('Sketchspace');
+if (process.platform === 'darwin') {
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    { role: 'appMenu' },
+    { role: 'editMenu' },
+    { role: 'viewMenu' },
+    { role: 'windowMenu' }
+  ]));
+} else {
+  Menu.setApplicationMenu(null);
+}
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'sketchspace', privileges: { standard: true, secure: true } }]);
 app.setAppUserModelId('com.willkrof.sketchspace');
@@ -34,32 +44,40 @@ function showWindow() {
   window.focus();
 }
 
+async function flushBeforeQuit() {
+  if (!window || window.isDestroyed() || window.webContents.isLoading()) return true;
+  return new Promise(resolve => {
+    const timeout = setTimeout(() => finishQuitSave?.(false), 10000);
+    finishQuitSave = success => {
+      clearTimeout(timeout);
+      finishQuitSave = null;
+      resolve(success);
+    };
+    window.webContents.send('app:flush-before-quit');
+  });
+}
+
 async function quitApp() {
   if (quitting || quitPending) return;
   quitPending = true;
-  if (window && !window.isDestroyed() && !window.webContents.isLoading()) {
-    const saved = await new Promise(resolve => {
-      const timeout = setTimeout(() => finishQuitSave?.(false), 10000);
-      finishQuitSave = success => {
-        clearTimeout(timeout);
-        finishQuitSave = null;
-        resolve(success);
-      };
-      window.webContents.send('app:flush-before-quit');
-    });
+  try {
+    const saved = await flushBeforeQuit();
     if (!saved) {
-      quitPending = false;
       showWindow();
       dialog.showErrorBox('Could not save wireframe', 'Sketchspace is still open. Try saving your wireframe before quitting.');
       return;
     }
+    quitting = true;
+    app.quit();
+  } finally {
+    quitPending = false;
   }
-  quitting = true;
-  app.quit();
 }
 
 function createTray() {
-  tray = new Tray(path.resolve(__dirname, '..', 'assets', 'icon.ico'));
+  const icon = path.resolve(__dirname, '..', 'assets', process.platform === 'darwin' ? 'icon.png' : 'icon.ico');
+  const image = process.platform === 'darwin' ? nativeImage.createFromBuffer(fs.readFileSync(icon)).resize({ width: 18, height: 18 }) : icon;
+  tray = new Tray(image);
   tray.setToolTip('Sketchspace');
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Open Sketchspace', click: showWindow },
@@ -166,7 +184,27 @@ if (hasSingleInstanceLock) app.whenReady().then(() => {
   ipcMain.handle('updates:state', event => { fromEditor(event); return updaterState; });
   ipcMain.handle('updates:action', async event => {
     fromEditor(event);
-    if (updaterState.status === 'ready') { quitting = true; autoUpdater.quitAndInstall(); return; }
+    if (updaterState.status === 'ready') {
+      if (quitPending) return;
+      quitPending = true;
+      try {
+        if (!(await flushBeforeQuit())) {
+          showWindow();
+          dialog.showErrorBox('Could not save wireframe', 'Sketchspace is still open. Try saving your wireframe before updating.');
+          return;
+        }
+        quitting = true;
+        try { autoUpdater.quitAndInstall(); }
+        catch (error) {
+          quitting = false;
+          publishUpdate({ status: 'ready', message: 'Could not restart for update. Try again.' });
+          throw error;
+        }
+      } finally {
+        quitPending = false;
+      }
+      return;
+    }
     if (updaterState.status !== 'available') return;
     publishUpdate({ status: 'downloading', percent: 0, message: '' });
     try { await autoUpdater.downloadUpdate(); }
@@ -179,5 +217,9 @@ if (hasSingleInstanceLock) app.whenReady().then(() => {
 });
 
 app.on('second-instance', showWindow);
-app.on('before-quit', () => { quitting = true; });
+app.on('before-quit', event => {
+  if (quitting) return;
+  event.preventDefault();
+  void quitApp();
+});
 app.on('window-all-closed', () => {});

@@ -1,0 +1,158 @@
+name: Desktop release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      mac_enabled: ${{ steps.signing.outputs.mac_enabled }}
+    steps:
+      - name: Check macOS signing configuration
+        id: signing
+        shell: bash
+        env:
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [[ -n "$MAC_CSC_LINK" && -n "$MAC_CSC_KEY_PASSWORD" && -n "$APPLE_ID" && -n "$APPLE_APP_SPECIFIC_PASSWORD" && -n "$APPLE_TEAM_ID" ]]; then
+            echo 'mac_enabled=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'mac_enabled=false' >> "$GITHUB_OUTPUT"
+            echo '::notice::macOS release skipped until all Apple signing and notarization secrets are configured.'
+          fi
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - name: Install dependencies and set release version
+        shell: pwsh
+        run: |
+          pnpm install --frozen-lockfile
+          node scripts/set-build-version.cjs $env:GITHUB_RUN_NUMBER
+      - name: Build and test
+        run: |
+          pnpm build
+          pnpm test
+          pnpm audit --prod --audit-level moderate
+      - name: Package Windows installer
+        shell: pwsh
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: |
+          if ([bool]$env:WIN_CSC_LINK -ne [bool]$env:WIN_CSC_KEY_PASSWORD) { throw 'Both code signing secrets are required.' }
+          pnpm desktop:dist
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $installer = Get-ChildItem release/Sketchspace-Setup-*.exe | Select-Object -First 1
+          if (-not $installer) { throw 'Windows installer missing' }
+          $signature = Get-AuthenticodeSignature $installer.FullName
+          if ($env:WIN_CSC_LINK -and $signature.Status -ne 'Valid') { throw "Expected a valid installer signature; got $($signature.Status)." }
+          if (-not $env:WIN_CSC_LINK) { Write-Host '::warning::Installer is unsigned and may trigger SmartScreen. Configure code signing secrets to sign future releases.' }
+          $hash = (Get-FileHash -Algorithm SHA512 $installer.FullName).Hash.ToLowerInvariant()
+          "$hash *$($installer.Name)" | Set-Content -Encoding ascii "$($installer.FullName).sha512"
+          if (-not (Test-Path release/latest.yml)) { throw 'Windows update metadata missing' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: |
+            release/Sketchspace-Setup-*.exe
+            release/Sketchspace-Setup-*.exe.sha512
+            release/latest.yml
+          if-no-files-found: error
+
+  macos:
+    needs: prepare
+    if: needs.prepare.outputs.mac_enabled == 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - name: Install dependencies and set release version
+        run: |
+          pnpm install --frozen-lockfile
+          node scripts/set-build-version.cjs "$GITHUB_RUN_NUMBER"
+      - name: Build and test
+        run: |
+          pnpm build
+          pnpm test
+          pnpm audit --prod --audit-level moderate
+      - name: Build, sign, and notarize universal macOS app
+        env:
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          pnpm desktop:mac:dist
+          codesign --verify --deep --strict --verbose=2 release/mac-universal/Sketchspace.app
+          xcrun stapler validate release/mac-universal/Sketchspace.app
+          spctl --assess --verbose --type exec release/mac-universal/Sketchspace.app
+          test -f release/Sketchspace-mac-universal.dmg
+          test -f release/Sketchspace-mac-universal.zip
+          test -f release/latest-mac.yml
+          shasum -a 512 release/Sketchspace-mac-universal.dmg > release/Sketchspace-mac-universal.dmg.sha512
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-release
+          path: |
+            release/Sketchspace-mac-universal.dmg
+            release/Sketchspace-mac-universal.dmg.sha512
+            release/Sketchspace-mac-universal.zip
+            release/latest-mac.yml
+          if-no-files-found: error
+
+  release:
+    needs: [prepare, windows, macos]
+    if: always() && needs.windows.result == 'success' && (needs.macos.result == 'success' || (needs.macos.result == 'skipped' && needs.prepare.outputs.mac_enabled == 'false'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node scripts/set-build-version.cjs "$GITHUB_RUN_NUMBER"
+          version="$(node -p "require('./package.json').version")"
+          tag="v$version"
+          test -f release/latest.yml
+          if [[ "${{ needs.prepare.outputs.mac_enabled }}" == 'true' ]]; then
+            test -f release/latest-mac.yml
+            test -f release/Sketchspace-mac-universal.dmg
+            test -f release/Sketchspace-mac-universal.zip
+          fi
+          gh release create "$tag" release/* --target "$GITHUB_SHA" --title "Sketchspace $tag" --generate-notes
