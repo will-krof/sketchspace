@@ -1,7 +1,7 @@
 {
   "name": "sketchspace",
-  "version": "0.1.0",
-  "description": "A focused desktop wireframe editor for Windows",
+  "version": "0.2.0",
+  "description": "A focused desktop wireframe editor for Windows and macOS",
   "author": "will-krof",
   "private": true,
   "type": "module",
@@ -12,6 +12,8 @@
     "desktop:pack": "electron-builder --win dir --publish never",
     "desktop:dist": "electron-builder --win nsis --publish never",
     "desktop:release": "electron-builder --win nsis --publish always",
+    "desktop:mac:pack": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dir --universal --publish never -c.mac.notarize=false -c.mac.identity=- -c.mac.hardenedRuntime=false -c.directories.output=\"${TMPDIR:-/private/tmp}/sketchspace-local-release\"",
+    "desktop:mac:dist": "electron-builder --mac dmg zip --universal --publish never",
     "test": "node --test tests/*.test.*",
     "bench:storage": "node scripts/benchmark-storage.cjs",
     "db:generate": "drizzle-kit generate"
@@ -19,8 +21,18 @@
   "build": {
     "appId": "com.willkrof.sketchspace",
     "productName": "Sketchspace",
-    "directories": { "output": "release" },
-    "files": ["desktop/**/*", "dist/index.html", "dist/*.css", "dist/app.js", "dist/icons/**/*", "assets/icon.png", "assets/icon.ico"],
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "desktop/**/*",
+      "dist/index.html",
+      "dist/*.css",
+      "dist/app.js",
+      "dist/icons/**/*",
+      "assets/icon.png",
+      "assets/icon.ico"
+    ],
     "asar": true,
     "electronFuses": {
       "runAsNode": false,
@@ -30,9 +42,47 @@
       "enableEmbeddedAsarIntegrityValidation": true,
       "onlyLoadAppFromAsar": true
     },
-    "win": { "target": ["nsis"], "icon": "assets/icon.ico" },
-    "nsis": { "oneClick": true, "perMachine": false, "createDesktopShortcut": true, "createStartMenuShortcut": true, "artifactName": "Sketchspace-Setup-${version}.exe" },
-    "publish": [{ "provider": "github", "owner": "will-krof", "repo": "sketchspace" }]
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "artifactName": "Sketchspace-mac-universal.${ext}",
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "notarize": true
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "Sketchspace-Setup-${version}.exe"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "will-krof",
+        "repo": "sketchspace"
+      }
+    ]
   },
   "devDependencies": {
     "drizzle-kit": "0.31.10",
