@@ -10,6 +10,7 @@
     tablet: { name: 'Tablet', w: 768, h: 1024 },
     mobile: { name: 'Mobile', w: 390, h: 844 }
   };
+  const MAX_PAGES = 5;
   const CATEGORIES = [
     { id: 'basic', name: 'Basic' },
     { id: 'navigation', name: 'Navigation' },
@@ -62,7 +63,8 @@
     fab: { name: 'Floating button', icon: '+', category: 'device', devices: ['mobile'], w: 56, h: 56, text: '+' },
     iphoneframe: { name: 'iPhone frame', icon: '▯', category: 'device', w: 220, h: 440, text: 'iPhone' },
     samsungframe: { name: 'Samsung frame', icon: '▯', category: 'device', w: 220, h: 440, text: 'Samsung' },
-    tabletframe: { name: 'Tablet frame', icon: '▤', category: 'device', w: 390, h: 520, text: 'Tablet' }
+    tabletframe: { name: 'Tablet frame', icon: '▤', category: 'device', w: 390, h: 520, text: 'Tablet' },
+    vrtabletframe: { name: 'VR tablet', icon: '▭', category: 'device', w: 420, h: 280, text: 'VR tablet' }
   };
   const BRANDS = [
     ['google', 'Google'], ['youtube', 'YouTube'], ['instagram', 'Instagram'], ['facebook', 'Facebook'],
@@ -93,7 +95,7 @@
     checkbox: 15, radio: 15, toggle: 15, card: 19, image: 14, avatar: 21, badge: 13, list: 14,
     table: 13, progress: 13, alert: 14, browserbar: 12, hero: 25, modal: 20, toolbar: 14,
     appbar: 17, statusbar: 13, mobileheader: 17, bottomnav: 12, bottombar: 12, fab: 28,
-    iphoneframe: 18, samsungframe: 18, tabletframe: 18
+    iphoneframe: 18, samsungframe: 18, tabletframe: 18, vrtabletframe: 18
   };
   const defaultFontSize = type => FONT_DEFAULTS[type] || 15;
   const hasText = type => !isIcon(type) && !['divider', 'slider', 'pagination'].includes(type);
@@ -128,7 +130,9 @@
   let saveTimer = null, pendingSave = Promise.resolve();
   const itemNodes = new Map(), itemsById = new Map();
   const undo = [], redo = [];
-  const page = () => doc.pages[doc.device].items;
+  const activePage = () => doc.pages.find(entry => entry.id === doc.activePageId);
+  const currentCanvas = () => activePage().canvases[doc.device];
+  const page = () => currentCanvas().items;
   const size = () => PRESETS[doc.device];
   const current = () => selection.size === 1 ? page().find(item => item.id === selected) : undefined;
   const selectedItems = () => page().filter(item => selection.has(item.id));
@@ -141,12 +145,16 @@
 
   function normalize(value) {
     if (!value || typeof value !== 'object') throw Error('Invalid wireframe file');
-    const sourcePages = value.pages || { desktop: { items: value.items } };
-    const pages = {};
-    for (const [device, preset] of Object.entries(PRESETS)) {
-      const raw = sourcePages[device]?.items || [];
-      if (!Array.isArray(raw)) throw Error('Invalid page');
-      pages[device] = { items: raw.slice(0, 300).map((v, index) => {
+    const sourcePages = Array.isArray(value.pages) ? value.pages
+      : [{ id: 'page-1', name: 'Page 1', canvases: value.pages || { desktop: { items: value.items } } }];
+    if (!sourcePages.length || sourcePages.length > MAX_PAGES) throw Error('A wireframe can have up to 5 pages');
+    const pages = sourcePages.map((source, pageIndex) => {
+      if (!source || typeof source !== 'object' || !source.canvases || typeof source.canvases !== 'object') throw Error('Invalid page');
+      const canvases = {};
+      for (const [device, preset] of Object.entries(PRESETS)) {
+        const raw = source.canvases[device]?.items || [];
+        if (!Array.isArray(raw)) throw Error('Invalid page');
+        canvases[device] = { items: raw.slice(0, 300).map((v, index) => {
         if (!v || typeof v.type !== 'string' || !Object.hasOwn(ELEMENTS, v.type)) throw Error('Unknown element type');
         const number = (n, fallback) => Number.isFinite(Number(n)) ? Number(n) : fallback;
         const w = clamp(number(v.w, ELEMENTS[v.type].w), 24, preset.w);
@@ -170,10 +178,15 @@
         if (v.type === 'list') item.items = (Array.isArray(v.items) && v.items.length ? v.items : [item.text || LIST_DEFAULTS[0], ...LIST_DEFAULTS.slice(1)]).slice(0, 12).map(entry => String(entry).slice(0, 120));
         if (v.type === 'dropdown') item.options = (Array.isArray(v.options) && v.options.length ? v.options : DROPDOWN_DEFAULTS).slice(0, 10).map(entry => String(entry).slice(0, 120));
         return item;
-      }) };
-    }
+        }) };
+      }
+      return { id: String(source.id || `page-${pageIndex + 1}`).slice(0, 60),
+        name: String(source.name || `Page ${pageIndex + 1}`).trim().slice(0, 40) || `Page ${pageIndex + 1}`, canvases };
+    });
+    if (new Set(pages.map(entry => entry.id)).size !== pages.length) throw Error('Duplicate page');
     return { title: String(value.title || 'Untitled').slice(0, 60),
-      device: PRESETS[value.device] ? value.device : 'desktop', pages };
+      device: Object.hasOwn(PRESETS, value.device) ? value.device : 'desktop',
+      activePageId: pages.some(entry => entry.id === value.activePageId) ? value.activePageId : pages[0].id, pages };
   }
   function load() {
     try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) return normalize(JSON.parse(raw)); } catch (_) {}
@@ -184,11 +197,11 @@
         const migrated = normalize(old);
         if (migrated.title === 'Мій перший прототип') migrated.title = 'My first wireframe';
         if (migrated.title === 'Новий макет') migrated.title = 'New wireframe';
-        for (const item of migrated.pages.desktop.items) if (LEGACY_TEXT.has(item.text)) item.text = LEGACY_TEXT.get(item.text);
+        for (const item of migrated.pages[0].canvases.desktop.items) if (LEGACY_TEXT.has(item.text)) item.text = LEGACY_TEXT.get(item.text);
         return migrated;
       }
     } catch (_) {}
-    return { title: 'My first wireframe', device: 'desktop', pages: { desktop: { items: clone(STARTER) }, tablet: { items: [] }, mobile: { items: [] } } };
+    return normalize({ title: 'My first wireframe', device: 'desktop', pages: { desktop: { items: clone(STARTER) }, tablet: { items: [] }, mobile: { items: [] } } });
   }
   async function apiRequest(path, method = 'GET', body) {
     if (window.sketchspaceDesktop) {
@@ -353,7 +366,7 @@
       case 'statusbar': content.append(el('span', '', t), el('span', '', '●  ▰  ▰')); break;
       case 'mobileheader': content.append(el('span', '', '‹'), el('strong', '', t), el('span', '', '⋯')); break;
       case 'bottomnav': case 'bottombar': for (const [icon, label] of [['⌂', t], ['⌕', 'Search'], ['♡', 'Saved'], ['◉', 'Profile']]) { const entry = el('span', 'bottom-entry'); entry.append(el('b', '', icon), el('span', '', label)); content.append(entry); } break;
-      case 'iphoneframe': case 'samsungframe': case 'tabletframe': {
+      case 'iphoneframe': case 'samsungframe': case 'tabletframe': case 'vrtabletframe': {
         const screen = el('div', 'device-screen');
         screen.append(el('span', 'device-camera'), el('span', 'device-name', t), el('span', 'device-indicator'));
         content.append(screen); break;
@@ -553,15 +566,15 @@
       for (let i = 1; i < next.length; i++) if (selection.has(next[i].id) && !selection.has(next[i - 1].id)) [next[i], next[i - 1]] = [next[i - 1], next[i]];
     }
     if (next.every((item, i) => item.id === before[i].id)) return;
-    snapshot(); doc.pages[doc.device].items = next; renderItems(); renderInspector(); save(); toast('Layer order updated');
+    snapshot(); currentCanvas().items = next; renderItems(); renderInspector(); save(); toast('Layer order updated');
   }
   function renderSavedCanvasMenu() {
     const menu = el('div', 'saved-canvas-menu');
-    const others = Object.entries(PRESETS).filter(([key]) => key !== doc.device && doc.pages[key].items.length);
+    const others = Object.entries(PRESETS).filter(([key]) => key !== doc.device && activePage().canvases[key].items.length);
     if (!others.length) return menu;
     menu.append(el('div', 'menu-caption', 'Previous canvases'));
     for (const [key, preset] of others) {
-      const button = el('button', '', `Open saved ${preset.name} canvas (${doc.pages[key].items.length})`);
+      const button = el('button', '', `Open saved ${preset.name} canvas (${activePage().canvases[key].items.length})`);
       button.type = 'button'; button.addEventListener('click', () => { switchDevice(key); $('#libraryDialog').close(); }); menu.append(button);
     }
     return menu;
@@ -578,8 +591,8 @@
       const row = el('div', `library-row${entry.id === activeId ? ' active' : ''}`);
       const details = el('div', 'library-details');
       const title = el('strong', 'library-title', entry.title);
-      const count = Object.values(entry.document.pages).reduce((total, sheet) => total + sheet.items.length, 0);
-      details.append(title, el('span', 'library-meta', `${count} element${count === 1 ? '' : 's'} · ${new Date(entry.updatedAt).toLocaleString('en', { dateStyle: 'medium', timeStyle: 'short' })}`));
+      const count = entry.document.pages.reduce((total, wireframePage) => total + Object.values(wireframePage.canvases).reduce((sum, sheet) => sum + sheet.items.length, 0), 0);
+      details.append(title, el('span', 'library-meta', `${entry.document.pages.length} page${entry.document.pages.length === 1 ? '' : 's'} · ${count} element${count === 1 ? '' : 's'} · ${new Date(entry.updatedAt).toLocaleString('en', { dateStyle: 'medium', timeStyle: 'short' })}`));
       const actions = el('div', 'library-actions');
       const open = el('button', 'library-open', entry.id === activeId ? 'Editing' : 'Open'); open.type = 'button'; open.disabled = entry.id === activeId;
       open.addEventListener('click', async () => { try { await flushSave(); activate(entry); $('#libraryDialog').close(); } catch (_) {} });
@@ -641,10 +654,63 @@
       library.unshift(entry); activate(entry); renderLibrary(); $('#libraryDialog').close(); toast('Wireframe created');
     } catch (error) { toast(error.message); }
   }
+  function renderPages() {
+    const tabs = $('#pageTabs'); tabs.replaceChildren();
+    for (const entry of doc.pages) {
+      const tab = el('button', 'page-tab', entry.name); tab.type = 'button'; tab.setAttribute('role', 'tab');
+      tab.setAttribute('aria-selected', String(entry.id === doc.activePageId));
+      tab.addEventListener('click', () => switchPage(entry.id)); tabs.append(tab);
+    }
+    $('#pageCount').textContent = `${doc.pages.length}/${MAX_PAGES}`;
+    $('#addPage').disabled = !activeId || doc.pages.length >= MAX_PAGES;
+    $('#renamePage').disabled = !activeId;
+    $('#deletePage').disabled = !activeId || doc.pages.length === 1;
+  }
+  function switchPage(id) {
+    if (id === doc.activePageId || !doc.pages.some(entry => entry.id === id)) return;
+    drag = null; marquee?.overlay.remove(); marquee = null;
+    doc.activePageId = id; selected = null; selection.clear(); render(); fitZoom(); save();
+  }
+  function addPage() {
+    if (!activeId || doc.pages.length >= MAX_PAGES) return;
+    snapshot();
+    drag = null; marquee?.overlay.remove(); marquee = null;
+    const id = `page-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    doc.pages.push({ id, name: `Page ${doc.pages.length + 1}`, canvases: { desktop: { items: [] }, tablet: { items: [] }, mobile: { items: [] } } });
+    doc.activePageId = id; selected = null; selection.clear(); render(); fitZoom(); save();
+  }
+  function renamePage() {
+    if (!activeId) return;
+    const entry = activePage(), tab = [...$('#pageTabs').children].find(node => node.getAttribute('aria-selected') === 'true');
+    if (!tab) return;
+    const input = el('input', 'page-name-input'); input.type = 'text'; input.maxLength = 40; input.value = entry.name;
+    input.setAttribute('aria-label', 'Page name'); tab.replaceWith(input); input.focus(); input.select();
+    let done = false;
+    const finish = commit => {
+      if (done) return;
+      done = true;
+      const name = input.value.trim();
+      if (commit && name && name !== entry.name) { snapshot(); entry.name = name; save(); }
+      renderPages();
+    };
+    input.addEventListener('blur', () => finish(true));
+    input.addEventListener('keydown', event => {
+      if (event.key === 'Enter') { event.preventDefault(); finish(true); }
+      if (event.key === 'Escape') { event.preventDefault(); finish(false); }
+    });
+  }
+  function deletePage() {
+    if (!activeId || doc.pages.length === 1) return;
+    const index = doc.pages.findIndex(entry => entry.id === doc.activePageId);
+    if (!confirm(`Delete “${doc.pages[index].name}” and all its elements? This cannot be undone.`)) return;
+    snapshot(); drag = null; marquee?.overlay.remove(); marquee = null;
+    doc.pages.splice(index, 1); doc.activePageId = doc.pages[Math.min(index, doc.pages.length - 1)].id;
+    selected = null; selection.clear(); render(); fitZoom(); save();
+  }
   function render() {
     const bounds = size(); canvas.style.width = `${bounds.w}px`; canvas.style.height = `${bounds.h}px`;
     $('#canvasSize').textContent = `${bounds.w} × ${bounds.h}`;
-    renderPalette(); renderItems(); renderInspector(); setZoom(zoom); updateHistory();
+    renderPages(); renderPalette(); renderItems(); renderInspector(); setZoom(zoom); updateHistory();
   }
   function setSelection(ids) { selection = new Set(ids.filter(id => itemsById.has(id))); selected = selection.size === 1 ? selection.values().next().value : null; syncSelectionVisuals(); renderInspector(); inspector.scrollTop = 0; }
   function setSelected(id) { setSelection(id ? [id] : []); }
@@ -689,7 +755,7 @@
     if (type.endsWith('frame')) page().unshift(item); else page().push(item);
     selection = new Set([item.id]); selected = item.id; renderItems(); renderInspector(); inspector.scrollTop = 0; save(); toast(`${def.name} added`); return item;
   }
-  function deleteSelected() { if (!selection.size) return; const count = selection.size; snapshot(); doc.pages[doc.device].items = page().filter(item => !selection.has(item.id)); selection.clear(); selected = null; renderItems(); renderInspector(); save(); toast(`${count} element${count === 1 ? '' : 's'} deleted`); }
+  function deleteSelected() { if (!selection.size) return; const count = selection.size; snapshot(); currentCanvas().items = page().filter(item => !selection.has(item.id)); selection.clear(); selected = null; renderItems(); renderInspector(); save(); toast(`${count} element${count === 1 ? '' : 's'} deleted`); }
 
   function filename(extension) { return (doc.title.trim().replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, '-') || 'wireframe') + extension; }
   function download(blob, name) { const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = name; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000); }
@@ -778,19 +844,21 @@
       else if (type === 'modal') { rect(x + 4, y + 4, w, h, '#c6d0d4', null); rect(x, y, w, h); write(t, x + 18, y + 35, `bold ${fontSize}px sans-serif`); rect(x + 18, y + 70, w * .72, 8, '#d1dadc', null); rect(x + 18, y + 88, w * .56, 8, '#d1dadc', null); rect(x + w - 107, y + h - 50, 88, 29, '#e9edeb'); write('Continue', x + w - 63, y + h - 35, '13px sans-serif', ink, 80, 'center'); }
       else if (type === 'splitview') { rect(x, y, w, h); rect(x, y, w * .38, h, '#edf2f3'); write(t, x + 12, y + 26, `bold ${fontSize}px sans-serif`); write('Details', x + w * .38 + 12, y + 26, `${fontSize}px sans-serif`); for (let i = 0; i < 2; i++) { rect(x + 12, y + 55 + i * 22, w * .27, 8, '#c9d3d7', null); rect(x + w * .38 + 12, y + 55 + i * 22, w * .4, 8, '#c9d3d7', null); } }
       else if (type.endsWith('frame')) {
-        const tablet = type === 'tabletframe', inset = tablet ? 10 : 8;
+        const tablet = type === 'tabletframe' || type === 'vrtabletframe', vr = type === 'vrtabletframe', inset = tablet ? 10 : 8;
         c.fillStyle = '#2e3a44'; c.strokeStyle = '#1b2933'; c.lineWidth = 2;
-        c.beginPath(); c.roundRect(x, y, w, h, tablet ? 21 : 30); c.fill(); c.stroke();
+        c.beginPath(); c.roundRect(x, y, w, h, vr ? 28 : tablet ? 21 : 30); c.fill(); c.stroke();
         c.fillStyle = '#fff'; c.beginPath(); c.roundRect(x + inset, y + inset, w - inset * 2, h - inset * 2, tablet ? 12 : 21); c.fill();
         if (type === 'iphoneframe') { c.fillStyle = '#2e3a44'; c.beginPath(); c.roundRect(x + w * .31, y + inset - 1, w * .38, 15, [0, 0, 12, 12]); c.fill(); }
-        else { c.fillStyle = '#596a73'; c.beginPath(); c.arc(x + w / 2, y + inset + 5, tablet ? 3 : 4, 0, Math.PI * 2); c.fill(); }
-        for (let i = 0; i < 6; i++) rect(x + w * .16, y + h * .28 + i * 29, w * .68, 3, '#edf1f2', null);
+        else { c.fillStyle = '#596a73'; for (const cx of vr ? [x + w / 2 - 9, x + w / 2 + 9] : [x + w / 2]) { c.beginPath(); c.arc(cx, y + inset + 5, tablet ? 3 : 4, 0, Math.PI * 2); c.fill(); } }
+        for (let i = 0; i < (vr ? 4 : 6); i++) rect(x + w * .16, y + h * .28 + i * 29, w * .68, 3, '#edf1f2', null);
         write(t, x + w / 2, y + h * .43, `bold ${fontSize}px Trebuchet MS, sans-serif`, muted, w - 30, 'center');
         rect(x + w * .37, y + h - inset - 9, w * .26, 4, '#45545d', null);
       }
       c.restore();
     }
-    output.toBlob(blob => { if (blob) { download(blob, filename(`-${doc.device}.png`)); toast('PNG downloaded'); } }, 'image/png');
+    const pageName = activePage().name.trim().replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, '-') || 'page';
+    const exportName = filename(`-${pageName}-${doc.device}.png`);
+    output.toBlob(blob => { if (blob) { download(blob, exportName); toast('PNG downloaded'); } }, 'image/png');
   }
 
   $('#zoomOut').addEventListener('click', () => setZoom(Math.round((zoom - .1) * 10) / 10));
@@ -804,6 +872,9 @@
   $('#undoBtn').addEventListener('click', () => historyStep(undo, redo));
   $('#redoBtn').addEventListener('click', () => historyStep(redo, undo));
   $('#libraryButton').addEventListener('click', () => { renderLibrary(); $('#libraryDialog').showModal(); });
+  $('#addPage').addEventListener('click', addPage);
+  $('#renamePage').addEventListener('click', renamePage);
+  $('#deletePage').addEventListener('click', deletePage);
   $('#closeLibrary').addEventListener('click', () => $('#libraryDialog').close());
   $('#newWireframe').addEventListener('click', () => createWireframe());
   $('#toolSearch').addEventListener('input', renderPalette);
@@ -838,7 +909,7 @@
     const mode = event.target.classList.contains('resize-handle') && selection.size === 1 ? 'resize' : 'move';
     if (!selection.has(item.id)) setSelected(item.id);
     const members = selectedItems().map(entry => ({ item: entry, node: itemNodes.get(entry.id), x: entry.x, y: entry.y, w: entry.w, h: entry.h }));
-    drag = { device: doc.device, mode, startX: event.clientX, startY: event.clientY, members, started: false,
+    drag = { device: doc.device, pageId: doc.activePageId, mode, startX: event.clientX, startY: event.clientY, members, started: false,
       left: Math.min(...members.map(entry => entry.x)), top: Math.min(...members.map(entry => entry.y)),
       right: Math.max(...members.map(entry => entry.x + entry.w)), bottom: Math.max(...members.map(entry => entry.y + entry.h)) };
     event.preventDefault();
@@ -855,7 +926,7 @@
       selected = selection.size === 1 ? selection.values().next().value : null;
       syncSelectionVisuals(); return;
     }
-    if (!drag || drag.device !== doc.device) return;
+    if (!drag || drag.device !== doc.device || drag.pageId !== doc.activePageId) return;
     const dx = Math.round((event.clientX - drag.startX) / zoom), dy = Math.round((event.clientY - drag.startY) / zoom);
     if (!drag.started && Math.abs(dx) + Math.abs(dy) < 2) return;
     if (!drag.started) { snapshot(); drag.started = true; }

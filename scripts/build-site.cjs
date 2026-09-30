@@ -3,7 +3,7 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 
 const root = path.resolve(__dirname, '..');
-const files = ['index.html', 'styles.css', 'editor.css', 'library.css', 'app.js', 'LUCIDE-LICENSE.txt', ...fs.readdirSync(path.join(root, 'dist', 'icons')).map(name => `icons/${name}`)];
+const files = ['index.html', 'styles.css', 'editor.css', 'pages.css', 'library.css', 'app.js', 'LUCIDE-LICENSE.txt', ...fs.readdirSync(path.join(root, 'dist', 'icons')).map(name => `icons/${name}`)];
 const assets = {};
 for (const name of files) {
   const type = name.endsWith('.html') ? 'text/html; charset=utf-8'

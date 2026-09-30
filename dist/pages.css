@@ -1,0 +1,49 @@
+.page-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 49px;
+  padding: 7px 22px;
+  background: #f8faf9;
+  border-top: 1px solid #dfe6e8;
+  border-bottom: 1px solid #dfe6e8;
+}
+.page-bar-label { flex: none; color: #778791; font-size: .68rem; font-weight: 850; letter-spacing: .1em; }
+.page-bar-label span { color: #a2adb4; letter-spacing: 0; margin-left: 3px; }
+.page-tabs { display: flex; align-items: center; gap: 5px; min-width: 0; overflow-x: auto; scrollbar-width: thin; flex: 1; }
+.page-tab, .page-name-input {
+  flex: none;
+  max-width: 160px;
+  min-width: 74px;
+  min-height: 32px;
+  padding: 5px 11px;
+  border: 1px solid #d7e0e3;
+  border-radius: 7px;
+  background: white;
+  color: #53636e;
+  font-size: .75rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.page-tab:hover { border-color: #b8ca77; background: #f3f8e4; }
+.page-tab[aria-selected="true"] { border-color: #bfd274; background: #e9f4b5; color: #263426; }
+.page-name-input { outline: 2px solid #b9d450; outline-offset: 1px; }
+.page-actions { display: flex; gap: 4px; flex: none; }
+.page-actions button { min-height: 32px; border: 1px solid #d7e0e3; background: #fff; border-radius: 7px; color: #42525d; font-size: .82rem; font-weight: 750; padding: 0 9px; }
+.page-actions button:hover:not(:disabled) { background: #eef5d4; }
+.page-actions button:disabled { opacity: .4; cursor: not-allowed; }
+#deletePage { font-size: 1.1rem; }
+#deletePage:hover:not(:disabled) { color: #aa4545; background: #fff0f0; }
+
+.canvas-item.vrtabletframe .content { border-radius: 28px; padding: 10px; box-shadow: 4px 5px 0 #bcc8cd; }
+.canvas-item.vrtabletframe .device-screen { border-radius: 16px; }
+.canvas-item.vrtabletframe .device-camera { position: absolute; top: 4px; left: calc(50% - 12px); width: 24px; height: 6px; border-left: 6px solid #52616a; border-right: 6px solid #52616a; z-index: 2; }
+.canvas-item.vrtabletframe .device-name { top: 38%; }
+
+@media (max-width: 800px) {
+  .page-bar { padding: 7px 14px; gap: 8px; }
+  .page-bar-label { display: none; }
+  .page-tab { max-width: 130px; }
+}

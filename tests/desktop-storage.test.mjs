@@ -9,6 +9,11 @@ const document = title => ({ title, device: 'desktop', pages: {
   desktop: { items: [{ id: 'one', type: 'button', x: 0, y: 0, w: 150, h: 50, text: 'Click' }] },
   tablet: { items: [] }, mobile: { items: [] }
 } });
+const pagedDocument = count => ({ title: 'Many pages', device: 'desktop', activePageId: `page-${count}`,
+  pages: Array.from({ length: count }, (_, index) => ({ id: `page-${index + 1}`, name: `Page ${index + 1}`, canvases: {
+    desktop: { items: index === count - 1 ? [{ id: 'vr', type: 'vrtabletframe', x: 10, y: 10, w: 420, h: 280, text: 'VR tablet' }] : [] },
+    tablet: { items: [] }, mobile: { items: [] }
+  } })) });
 
 test('desktop wireframes persist, update, delete, and enforce the 10-item limit', async t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'sketchspace-store-'));
@@ -69,4 +74,17 @@ test('concurrent writes stay ordered and oversized local files are rejected', as
   assert.equal((await storage.createStore(directory).list()).items.length, 10);
   fs.writeFileSync(path.join(directory, 'wireframes.json'), 'x'.repeat(3000001));
   await assert.rejects(storage.createStore(directory).list(), /too large/);
+});
+
+test('five pages and VR tablet persist while a sixth page is rejected', async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'sketchspace-store-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const store = storage.createStore(directory);
+  const five = pagedDocument(5);
+  const created = await store.create(five);
+  assert.deepEqual((await storage.createStore(directory).list()).items[0].document, five);
+  assert.throws(() => store.update(created.id, pagedDocument(6)), /Invalid wireframe/);
+  const missingActive = structuredClone(five); missingActive.activePageId = 'missing';
+  assert.throws(() => store.update(created.id, missingActive), /Invalid wireframe/);
+  assert.equal((await store.list()).items[0].document.pages.length, 5);
 });

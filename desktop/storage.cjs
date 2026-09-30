@@ -8,7 +8,7 @@ const MAX_WIREFRAMES = 10;
 const DEVICES = ['desktop', 'tablet', 'mobile'];
 const FONTS = new Set(['Comic Sans MS', 'Arial', 'Verdana', 'Georgia', 'Times New Roman', 'Trebuchet MS', 'Courier New', 'Segoe UI']);
 const PROGRESS_VALUES = new Set([5, 20, 50, 75, 100]);
-const TYPES = new Set(`heading text label button link box divider icon navbar tabs breadcrumb sidebar pagination menubutton input textarea search dropdown checkbox radio toggle slider card image avatar badge list table progress alert browserbar hero modal toolbar appbar splitview bottombar statusbar mobileheader bottomnav fab iphoneframe samsungframe tabletframe ui_house ui_search ui_menu ui_arrow-left ui_arrow-right ui_chevron-down ui_map-pin ui_external-link ui_plus ui_minus ui_check ui_x ui_pencil ui_trash ui_save ui_download ui_upload ui_share-2 ui_copy ui_funnel ui_ellipsis ui_user ui_users ui_mail ui_message-circle ui_phone ui_bell ui_image ui_calendar ui_clock ui_heart ui_star ui_info ui_circle-alert ui_lock ui_shopping-cart ui_settings ui_eye ui_bookmark brand_google brand_youtube brand_instagram brand_facebook brand_whatsapp brand_telegram brand_tiktok brand_spotify brand_github brand_discord brand_figma brand_notion brand_netflix brand_x`.split(' '));
+const TYPES = new Set(`heading text label button link box divider icon navbar tabs breadcrumb sidebar pagination menubutton input textarea search dropdown checkbox radio toggle slider card image avatar badge list table progress alert browserbar hero modal toolbar appbar splitview bottombar statusbar mobileheader bottomnav fab iphoneframe samsungframe tabletframe vrtabletframe ui_house ui_search ui_menu ui_arrow-left ui_arrow-right ui_chevron-down ui_map-pin ui_external-link ui_plus ui_minus ui_check ui_x ui_pencil ui_trash ui_save ui_download ui_upload ui_share-2 ui_copy ui_funnel ui_ellipsis ui_user ui_users ui_mail ui_message-circle ui_phone ui_bell ui_image ui_calendar ui_clock ui_heart ui_star ui_info ui_circle-alert ui_lock ui_shopping-cart ui_settings ui_eye ui_bookmark brand_google brand_youtube brand_instagram brand_facebook brand_whatsapp brand_telegram brand_tiktok brand_spotify brand_github brand_discord brand_figma brand_notion brand_netflix brand_x`.split(' '));
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const text = (value, max) => typeof value === 'string' && value.length <= max;
 const number = (value, min, max) => typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
@@ -29,12 +29,22 @@ function validItem(item) {
   return true;
 }
 
+function validCanvases(canvases) {
+  return object(canvases) && DEVICES.every(device => {
+    const items = canvases[device]?.items;
+    return Array.isArray(items) && items.length <= 300 && items.every(validItem) && new Set(items.map(item => item.id)).size === items.length;
+  });
+}
+
 function validDocument(document) {
-  return object(document) && text(document.title, 60) && Boolean(document.title.trim()) && DEVICES.includes(document.device) && object(document.pages)
-    && DEVICES.every(device => {
-      const items = document.pages[device]?.items;
-      return Array.isArray(items) && items.length <= 300 && items.every(validItem) && new Set(items.map(item => item.id)).size === items.length;
-    });
+  if (!object(document) || !text(document.title, 60) || !document.title.trim() || !DEVICES.includes(document.device)) return false;
+  if (!Array.isArray(document.pages)) return validCanvases(document.pages); // Existing single-page files.
+  const pages = document.pages;
+  return pages.length >= 1 && pages.length <= 5 && text(document.activePageId, 60)
+    && pages.every(page => object(page) && text(page.id, 60) && Boolean(page.id) && text(page.name, 40)
+      && Boolean(page.name.trim()) && validCanvases(page.canvases))
+    && new Set(pages.map(page => page.id)).size === pages.length
+    && pages.some(page => page.id === document.activePageId);
 }
 
 function checkedDocument(document) {

@@ -4,7 +4,7 @@
 
 ### A simple space for your next interface idea.
 
-Sketchspace is a **Windows and macOS desktop wireframe editor** for quick layouts and early product flows. Place elements, edit their content, and keep up to ten designs on your computer. The editor works offline.
+Sketchspace is a **Windows and macOS desktop wireframe editor** for quick layouts and early product flows. Place elements, edit their content, and keep up to ten wireframes with up to five pages each on your computer. The editor works offline.
 
 [Download the latest release](https://github.com/will-krof/sketchspace/releases/latest) · [See Cadence](https://github.com/will-krof/cadence)
 
@@ -44,9 +44,9 @@ The current GitHub installer is **unsigned**, so Windows may show “Windows pro
 
 | Build | Refine | Keep |
 | --- | --- | --- |
-| Search **97 elements** across basics, navigation, forms, content, devices and icons. | Edit breadcrumbs, list entries, dropdown options and table cells. Choose progress levels and a font for each element. Resize, zoom and arrange layers. | Save up to **10 wireframes locally**. Rename, delete, reveal the storage file, import JSON, or export JSON and PNG. |
+| Search **98 elements** across basics, navigation, forms, content, devices and icons. | Edit breadcrumbs, list entries, dropdown options and table cells. Choose progress levels and a font for each element. Resize, zoom and arrange layers. | Save up to **10 wireframes locally**, with **5 pages per wireframe**. Rename, delete, reveal the storage file, import JSON, or export JSON and PNG. |
 
-Sketchspace has desktop, tablet and mobile canvases, along with iPhone, Samsung and tablet frames. Its monochrome icon palette contains common interface symbols and familiar service marks.
+Each page has its own desktop, tablet and mobile canvases. The device elements include iPhone, Samsung, tablet and VR tablet frames. The monochrome icon palette contains common interface symbols and familiar service marks.
 
 <table>
 <tr>
@@ -73,7 +73,7 @@ Each push to `main` runs the desktop release workflow. It builds and tests the a
 
 Closing the window hides Sketchspace in the Windows notification area or macOS menu bar. Choose **Open Sketchspace** from its icon to return. Choose **Quit Sketchspace** from that menu, or use the standard macOS Quit command, to exit completely; the app waits for pending edits to save first. If saving fails, the editor stays open so you can retry. Starting Sketchspace while it is already running brings the existing window forward and does not start another update check.
 
-Wireframes are saved to a local `wireframes.json` file in Electron's per-user data directory. They are not uploaded to GitHub or synchronized between computers. To move work from the earlier web editor, export each wireframe as JSON there and import it through **My wireframes** in the desktop app.
+Wireframes are saved to a local `wireframes.json` file in Electron's per-user data directory. They are not uploaded to GitHub or synchronized between computers. Existing single-page wireframes open as Page 1. To move work from the earlier web editor, export each wireframe as JSON there and import it through **My wireframes** in the desktop app.
 
 The folder icon in **My wireframes** opens Explorer or Finder with `wireframes.json` selected. All wireframes on that computer are stored in this one file.
 
@@ -88,9 +88,10 @@ Local writes are queued, atomic and asynchronous; a cache avoids reparsing the w
 ## A quick workflow
 
 1. Pick an element category or search the palette.
-2. Click an element to add it to the canvas; drag and resize it.
-3. Use the properties panel to edit content, text size and layer order.
-4. Open **My wireframes** to organize saved work or export the result.
+2. Use **+ Page** to add pages, then switch between them in the page bar. Rename or delete the selected page there.
+3. Click an element to add it to the current canvas; drag and resize it.
+4. Use the properties panel to edit content, text size and layer order.
+5. Open **My wireframes** to organize saved work or export the current page as PNG.
 
 | Gesture | Result |
 | --- | --- |

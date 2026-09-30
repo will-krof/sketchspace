@@ -17,6 +17,11 @@ const document = () => ({ title: 'Test', device: 'desktop', pages: {
   desktop: { items: [{ id: 'one', type: 'list', x: 0, y: 0, w: 265, h: 150, text: 'First item', items: ['First item', 'Second item'] }] },
   tablet: { items: [] }, mobile: { items: [] }
 } });
+const pagedDocument = count => ({ title: 'Paged', device: 'desktop', activePageId: 'page-1',
+  pages: Array.from({ length: count }, (_, index) => ({ id: `page-${index + 1}`, name: `Page ${index + 1}`, canvases: {
+    desktop: { items: index === 0 ? [{ id: 'vr', type: 'vrtabletframe', x: 0, y: 0, w: 420, h: 280, text: 'VR tablet' }] : [] },
+    tablet: { items: [] }, mobile: { items: [] }
+  } })) });
 const request = (path, method = 'GET', body, user = 'alice', headers = {}) => worker.fetch(new Request(`${origin}${path}`, {
   method, headers: { 'oai-authenticated-user-id': user, ...(body === undefined ? {} : { 'content-type': 'application/json', origin }), ...headers },
   body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body)
@@ -59,4 +64,13 @@ test('saved wireframes remain scoped to their owner', async () => {
   assert.equal((await request(`/api/wireframes/${id}`, 'PUT', { document: document() }, 'bob')).status, 404);
   assert.equal((await request(`/api/wireframes/${id}`, 'DELETE', undefined, 'bob', { origin })).status, 404);
   assert.equal((await request(`/api/wireframes/${id}`, 'DELETE', undefined, 'alice', { origin })).status, 200);
+});
+
+test('hosted storage accepts five pages and rejects more than five', async () => {
+  const valid = await request('/api/wireframes', 'POST', { document: pagedDocument(5) }, 'paged-user');
+  assert.equal(valid.status, 201);
+  const saved = await (await request('/api/wireframes', 'GET', undefined, 'paged-user')).json();
+  assert.equal(saved.items[0].document.pages.length, 5);
+  assert.equal(saved.items[0].document.pages[0].canvases.desktop.items[0].type, 'vrtabletframe');
+  assert.equal((await request('/api/wireframes', 'POST', { document: pagedDocument(6) }, 'paged-user')).status, 400);
 });
