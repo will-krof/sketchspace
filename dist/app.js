@@ -961,7 +961,7 @@
   $('#zoomSlider').addEventListener('input', event => setZoom(Number(event.target.value) / 100));
   $('#zoomFit').addEventListener('click', fitZoom);
   scroll.addEventListener('wheel', event => {
-    if (!event.ctrlKey && !event.metaKey) return;
+    if (!event.ctrlKey) return;
     event.preventDefault(); setZoom(Math.round((zoom + (event.deltaY < 0 ? .1 : -.1)) * 10) / 10);
   }, { passive: false });
   $('#undoBtn').addEventListener('click', () => historyStep(undo, redo));
@@ -1058,9 +1058,9 @@
   window.addEventListener('keydown', event => {
     const editing = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);
     if (event.code === 'Space' && !editing) { spaceHeld = true; scroll.style.cursor = 'grab'; event.preventDefault(); }
-    if ((event.ctrlKey || event.metaKey) && !editing && event.key.toLowerCase() === 'z') { event.preventDefault(); historyStep(event.shiftKey ? redo : undo, event.shiftKey ? undo : redo); }
-    if ((event.ctrlKey || event.metaKey) && !editing && event.key.toLowerCase() === 'y') { event.preventDefault(); historyStep(redo, undo); }
-    if ((event.ctrlKey || event.metaKey) && !editing && event.key.toLowerCase() === 'a') { event.preventDefault(); setSelection(page().map(item => item.id)); }
+    if (event.ctrlKey && !editing && event.key.toLowerCase() === 'z') { event.preventDefault(); historyStep(event.shiftKey ? redo : undo, event.shiftKey ? undo : redo); }
+    if (event.ctrlKey && !editing && event.key.toLowerCase() === 'y') { event.preventDefault(); historyStep(redo, undo); }
+    if (event.ctrlKey && !editing && event.key.toLowerCase() === 'a') { event.preventDefault(); setSelection(page().map(item => item.id)); }
     if (!editing && selection.size && ['Delete', 'Backspace'].includes(event.key)) { event.preventDefault(); deleteSelected(); }
     if (!editing && selection.size && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
       event.preventDefault(); const items = selectedItems().filter(item => item.type !== 'arrow' || !arrowGeometry(item).connected), bounds = size(), step = event.shiftKey ? 10 : 1;

@@ -1,7 +1,7 @@
 {
   "name": "sketchspace",
   "version": "0.2.0",
-  "description": "A focused desktop wireframe editor for Windows and macOS",
+  "description": "A focused desktop wireframe editor for Windows",
   "author": "will-krof",
   "private": true,
   "type": "module",
@@ -12,8 +12,6 @@
     "desktop:pack": "electron-builder --win dir --publish never",
     "desktop:dist": "electron-builder --win nsis --publish never",
     "desktop:release": "electron-builder --win nsis --publish always",
-    "desktop:mac:pack": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dir --universal --publish never -c.mac.notarize=false -c.mac.identity=- -c.mac.hardenedRuntime=false -c.directories.output=\"${TMPDIR:-/private/tmp}/sketchspace-local-release\"",
-    "desktop:mac:dist": "electron-builder --mac dmg zip --universal --publish never",
     "test": "node --test tests/*.test.*",
     "bench:storage": "node scripts/benchmark-storage.cjs",
     "db:generate": "drizzle-kit generate"
@@ -47,27 +45,6 @@
         "nsis"
       ],
       "icon": "assets/icon.ico"
-    },
-    "mac": {
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "universal"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "universal"
-          ]
-        }
-      ],
-      "icon": "assets/icon.png",
-      "artifactName": "Sketchspace-mac-universal.${ext}",
-      "hardenedRuntime": true,
-      "entitlements": "build/entitlements.mac.plist",
-      "notarize": true
     },
     "nsis": {
       "oneClick": true,

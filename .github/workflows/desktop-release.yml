@@ -1,4 +1,4 @@
-name: Desktop release
+name: Windows release
 
 on:
   push:
@@ -14,28 +14,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  prepare:
-    runs-on: ubuntu-latest
-    outputs:
-      mac_enabled: ${{ steps.signing.outputs.mac_enabled }}
-    steps:
-      - name: Check macOS signing configuration
-        id: signing
-        shell: bash
-        env:
-          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          if [[ -n "$MAC_CSC_LINK" && -n "$MAC_CSC_KEY_PASSWORD" && -n "$APPLE_ID" && -n "$APPLE_APP_SPECIFIC_PASSWORD" && -n "$APPLE_TEAM_ID" ]]; then
-            echo 'mac_enabled=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'mac_enabled=false' >> "$GITHUB_OUTPUT"
-            echo '::notice::macOS release skipped until all Apple signing and notarization secrets are configured.'
-          fi
-
   windows:
     runs-on: windows-latest
     steps:
@@ -83,57 +61,8 @@ jobs:
             release/latest.yml
           if-no-files-found: error
 
-  macos:
-    needs: prepare
-    if: needs.prepare.outputs.mac_enabled == 'true'
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.19.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: pnpm
-      - name: Install dependencies and set release version
-        run: |
-          pnpm install --frozen-lockfile
-          node scripts/set-build-version.cjs "$GITHUB_RUN_NUMBER"
-      - name: Build and test
-        run: |
-          pnpm build
-          pnpm test
-          pnpm audit --prod --audit-level moderate
-      - name: Build, sign, and notarize universal macOS app
-        env:
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          pnpm desktop:mac:dist
-          codesign --verify --deep --strict --verbose=2 release/mac-universal/Sketchspace.app
-          xcrun stapler validate release/mac-universal/Sketchspace.app
-          spctl --assess --verbose --type exec release/mac-universal/Sketchspace.app
-          test -f release/Sketchspace-mac-universal.dmg
-          test -f release/Sketchspace-mac-universal.zip
-          test -f release/latest-mac.yml
-          shasum -a 512 release/Sketchspace-mac-universal.dmg > release/Sketchspace-mac-universal.dmg.sha512
-      - uses: actions/upload-artifact@v4
-        with:
-          name: macos-release
-          path: |
-            release/Sketchspace-mac-universal.dmg
-            release/Sketchspace-mac-universal.dmg.sha512
-            release/Sketchspace-mac-universal.zip
-            release/latest-mac.yml
-          if-no-files-found: error
-
   release:
-    needs: [prepare, windows, macos]
-    if: always() && needs.windows.result == 'success' && (needs.macos.result == 'success' || (needs.macos.result == 'skipped' && needs.prepare.outputs.mac_enabled == 'false'))
+    needs: windows
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -150,9 +79,4 @@ jobs:
           version="$(node -p "require('./package.json').version")"
           tag="v$version"
           test -f release/latest.yml
-          if [[ "${{ needs.prepare.outputs.mac_enabled }}" == 'true' ]]; then
-            test -f release/latest-mac.yml
-            test -f release/Sketchspace-mac-universal.dmg
-            test -f release/Sketchspace-mac-universal.zip
-          fi
           gh release create "$tag" release/* --target "$GITHUB_SHA" --title "Sketchspace $tag" --generate-notes

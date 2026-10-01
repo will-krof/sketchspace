@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, net, protocol, session, shell, Tray } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Menu, net, protocol, session, shell, Tray } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -7,23 +7,19 @@ const { createStore } = require('./storage.cjs');
 
 const ROOT = path.resolve(__dirname, '..', 'dist');
 const APP_URL = 'sketchspace://app/';
-app.setName('Sketchspace');
-if (process.platform === 'darwin') {
-  Menu.setApplicationMenu(Menu.buildFromTemplate([
-    { role: 'appMenu' },
-    { role: 'editMenu' },
-    { role: 'viewMenu' },
-    { role: 'windowMenu' }
-  ]));
-} else {
-  Menu.setApplicationMenu(null);
+if (process.platform !== 'win32') {
+  console.error('Sketchspace supports Windows only.');
+  app.exit(1);
+  return;
 }
+app.setName('Sketchspace');
+Menu.setApplicationMenu(null);
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'sketchspace', privileges: { standard: true, secure: true } }]);
 app.setAppUserModelId('com.willkrof.sketchspace');
 // The editor is a 2D DOM canvas; software compositing can reduce intermittent
 // whole-window white flashes on affected Windows GPU/driver combinations.
-if (process.platform === 'win32') app.disableHardwareAcceleration();
+app.disableHardwareAcceleration();
 
 let window;
 let tray;
@@ -75,9 +71,7 @@ async function quitApp() {
 }
 
 function createTray() {
-  const icon = path.resolve(__dirname, '..', 'assets', process.platform === 'darwin' ? 'icon.png' : 'icon.ico');
-  const image = process.platform === 'darwin' ? nativeImage.createFromBuffer(fs.readFileSync(icon)).resize({ width: 18, height: 18 }) : icon;
-  tray = new Tray(image);
+  tray = new Tray(path.resolve(__dirname, '..', 'assets', 'icon.ico'));
   tray.setToolTip('Sketchspace');
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Open Sketchspace', click: showWindow },
@@ -213,7 +207,6 @@ if (hasSingleInstanceLock) app.whenReady().then(() => {
   createTray();
   createWindow();
   if (app.isPackaged) setTimeout(configureUpdates, 4000);
-  app.on('activate', showWindow);
 });
 
 app.on('second-instance', showWindow);
