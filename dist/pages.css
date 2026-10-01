@@ -30,6 +30,11 @@
 .page-tab:hover { border-color: #b8ca77; background: #f3f8e4; }
 .page-tab[aria-selected="true"] { border-color: #bfd274; background: #e9f4b5; color: #263426; }
 .page-name-input { outline: 2px solid #b9d450; outline-offset: 1px; }
+.page-rename { display: flex; align-items: center; gap: 5px; flex: none; }
+.page-rename .page-name-input { width: 160px; }
+.page-rename button { min-height: 32px; padding: 0 9px; border: 1px solid #d7e0e3; border-radius: 7px; background: #fff; color: #42525d; font-size: .73rem; font-weight: 750; }
+.page-rename .page-rename-save { background: #e9f4b5; border-color: #bfd274; color: #263426; }
+.page-rename button:hover { background: #f0f6db; }
 .page-actions { display: flex; gap: 4px; flex: none; }
 .page-actions button { min-height: 32px; border: 1px solid #d7e0e3; background: #fff; border-radius: 7px; color: #42525d; font-size: .82rem; font-weight: 750; padding: 0 9px; }
 .page-actions button:hover:not(:disabled) { background: #eef5d4; }
@@ -41,6 +46,14 @@
 .canvas-item.vrtabletframe .device-screen { border-radius: 16px; }
 .canvas-item.vrtabletframe .device-camera { position: absolute; top: 4px; left: calc(50% - 12px); width: 24px; height: 6px; border-left: 6px solid #52616a; border-right: 6px solid #52616a; z-index: 2; }
 .canvas-item.vrtabletframe .device-name { top: 38%; }
+.canvas-item.arrow { pointer-events: none; }
+.canvas-item.arrow .content { overflow: visible; }
+.canvas-item.arrow svg { display: block; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.canvas-item.arrow .connector-hit { fill: none; stroke: transparent; stroke-width: 18; pointer-events: stroke; cursor: move; }
+.canvas-item.arrow .connector-line, .canvas-item.arrow .connector-head { fill: none; stroke: #35414b; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.canvas-item.arrow .resize-handle { pointer-events: auto; }
+.canvas-item.arrow.connected .resize-handle { display: none; }
+.connector-help { color: #71818b; font-size: .76rem; line-height: 1.5; margin: 9px 0 14px; }
 
 @media (max-width: 800px) {
   .page-bar { padding: 7px 14px; gap: 8px; }

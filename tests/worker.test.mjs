@@ -74,3 +74,18 @@ test('hosted storage accepts five pages and rejects more than five', async () =>
   assert.equal(saved.items[0].document.pages[0].canvases.desktop.items[0].type, 'vrtabletframe');
   assert.equal((await request('/api/wireframes', 'POST', { document: pagedDocument(6) }, 'paged-user')).status, 400);
 });
+
+test('hosted storage keeps renamed pages and attached arrows', async () => {
+  const wireframe = pagedDocument(2);
+  wireframe.pages[0].name = 'Purchase steps';
+  wireframe.pages[0].canvases.desktop.items = [
+    { id: 'a', type: 'box', x: 10, y: 20, w: 100, h: 80, text: '' },
+    { id: 'b', type: 'box', x: 300, y: 20, w: 100, h: 80, text: '' },
+    { id: 'arrow', type: 'arrow', x: 120, y: 50, w: 180, h: 72, text: '', fromId: 'a', toId: 'b' }
+  ];
+  assert.equal((await request('/api/wireframes', 'POST', { document: wireframe }, 'arrows-user')).status, 201);
+  const saved = await (await request('/api/wireframes', 'GET', undefined, 'arrows-user')).json();
+  assert.deepEqual(saved.items[0].document, wireframe);
+  wireframe.pages[0].canvases.desktop.items[2].toId = 'missing';
+  assert.equal((await request('/api/wireframes', 'POST', { document: wireframe }, 'arrows-user')).status, 400);
+});

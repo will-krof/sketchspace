@@ -44,7 +44,7 @@ The current GitHub installer is **unsigned**, so Windows may show “Windows pro
 
 | Build | Refine | Keep |
 | --- | --- | --- |
-| Search **98 elements** across basics, navigation, forms, content, devices and icons. | Edit breadcrumbs, list entries, dropdown options and table cells. Choose progress levels and a font for each element. Resize, zoom and arrange layers. | Save up to **10 wireframes locally**, with **5 pages per wireframe**. Rename, delete, reveal the storage file, import JSON, or export JSON and PNG. |
+| Search **99 elements** across basics, navigation, forms, content, devices and icons. Add arrows to show connections between elements. | Edit breadcrumbs, list entries, dropdown options and table cells. Choose progress levels and a font for each element. Resize, zoom and arrange layers. | Save up to **10 wireframes locally**, with **5 pages per wireframe**. Rename, delete, reveal the storage file, import JSON, or export JSON and PNG. |
 
 Each page has its own desktop, tablet and mobile canvases. The device elements include iPhone, Samsung, tablet and VR tablet frames. The monochrome icon palette contains common interface symbols and familiar service marks.
 
@@ -88,10 +88,11 @@ Local writes are queued, atomic and asynchronous; a cache avoids reparsing the w
 ## A quick workflow
 
 1. Pick an element category or search the palette.
-2. Use **+ Page** to add pages, then switch between them in the page bar. Rename or delete the selected page there.
+2. Use **+ Page** to add pages, then switch between them in the page bar. Use the pencil button or double-click a selected tab to rename it, then click **Save**. Delete the selected page there too.
 3. Click an element to add it to the current canvas; drag and resize it.
 4. Use the properties panel to edit content, text size and layer order.
-5. Open **My wireframes** to organize saved work or export the current page as PNG.
+5. To show a connection, Shift-click two elements and add **Arrow** from Basic. You can also add a free arrow and choose its **From** and **To** elements in the properties panel. Connected arrows follow their endpoints.
+6. Open **My wireframes** to organize saved work or export the current page as PNG.
 
 | Gesture | Result |
 | --- | --- |

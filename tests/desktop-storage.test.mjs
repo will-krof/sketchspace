@@ -88,3 +88,23 @@ test('five pages and VR tablet persist while a sixth page is rejected', async t 
   assert.throws(() => store.update(created.id, missingActive), /Invalid wireframe/);
   assert.equal((await store.list()).items[0].document.pages.length, 5);
 });
+
+test('renamed pages and attached arrows persist; missing endpoints are rejected', async t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'sketchspace-store-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const store = storage.createStore(directory);
+  const wireframe = pagedDocument(2);
+  wireframe.pages[0].name = 'Checkout flow';
+  wireframe.pages[0].canvases.desktop.items = [
+    { id: 'start', type: 'box', x: 10, y: 20, w: 100, h: 80, text: '' },
+    { id: 'end', type: 'box', x: 300, y: 20, w: 100, h: 80, text: '' },
+    { id: 'connection', type: 'arrow', x: 120, y: 50, w: 180, h: 72, text: '', fromId: 'start', toId: 'end' }
+  ];
+  await store.create(wireframe);
+  assert.deepEqual((await storage.createStore(directory).list()).items[0].document, wireframe);
+  const invalid = structuredClone(wireframe);
+  invalid.pages[0].canvases.desktop.items[2].toId = 'missing';
+  assert.throws(() => store.create(invalid), /Invalid wireframe/);
+  invalid.pages[0].canvases.desktop.items[2].toId = 'start';
+  assert.throws(() => store.create(invalid), /Invalid wireframe/);
+});

@@ -27,6 +27,7 @@
     link: { name: 'Text link', icon: '↗', category: 'basic', w: 150, h: 32, text: 'Learn more' },
     box: { name: 'Rectangle', icon: '□', category: 'basic', w: 240, h: 150, text: '' },
     divider: { name: 'Divider', icon: '━', category: 'basic', w: 260, h: 12, text: '' },
+    arrow: { name: 'Arrow', icon: '➜', category: 'basic', w: 180, h: 72, text: '' },
     icon: { name: 'Icon', icon: '☆', category: 'basic', w: 54, h: 54, text: '☆' },
     navbar: { name: 'Navigation bar', icon: '☷', category: 'navigation', w: 470, h: 58, text: 'Brand' },
     tabs: { name: 'Tabs', icon: '▤', category: 'navigation', w: 310, h: 48, text: 'Overview' },
@@ -98,7 +99,7 @@
     iphoneframe: 18, samsungframe: 18, tabletframe: 18, vrtabletframe: 18
   };
   const defaultFontSize = type => FONT_DEFAULTS[type] || 15;
-  const hasText = type => !isIcon(type) && !['divider', 'slider', 'pagination'].includes(type);
+  const hasText = type => !isIcon(type) && !['divider', 'arrow', 'slider', 'pagination'].includes(type);
   const STARTER = [
     { id: 'a1', type: 'heading', x: 62, y: 38, w: 210, h: 53, text: 'brand name' },
     { id: 'a2', type: 'text', x: 663, y: 52, w: 244, h: 34, text: 'About    Services    Contact' },
@@ -177,8 +178,18 @@
         if (v.type === 'table') item.cells = TABLE_DEFAULTS.map((row, r) => row.map((fallback, c) => String(v.cells?.[r]?.[c] ?? (r === 0 && c === 0 ? item.text || fallback : fallback)).slice(0, 120)));
         if (v.type === 'list') item.items = (Array.isArray(v.items) && v.items.length ? v.items : [item.text || LIST_DEFAULTS[0], ...LIST_DEFAULTS.slice(1)]).slice(0, 12).map(entry => String(entry).slice(0, 120));
         if (v.type === 'dropdown') item.options = (Array.isArray(v.options) && v.options.length ? v.options : DROPDOWN_DEFAULTS).slice(0, 10).map(entry => String(entry).slice(0, 120));
+        if (v.type === 'arrow') {
+          if (typeof v.fromId === 'string') item.fromId = v.fromId.slice(0, 60);
+          if (typeof v.toId === 'string') item.toId = v.toId.slice(0, 60);
+        }
         return item;
         }) };
+        const targets = new Set(canvases[device].items.filter(item => item.type !== 'arrow').map(item => item.id));
+        for (const item of canvases[device].items) if (item.type === 'arrow') {
+          if (!targets.has(item.fromId)) delete item.fromId;
+          if (!targets.has(item.toId)) delete item.toId;
+          if (item.fromId && item.fromId === item.toId) delete item.toId;
+        }
       }
       return { id: String(source.id || `page-${pageIndex + 1}`).slice(0, 60),
         name: String(source.name || `Page ${pageIndex + 1}`).trim().slice(0, 40) || `Page ${pageIndex + 1}`, canvases };
@@ -333,6 +344,15 @@
     const t = item.text;
     if (isIcon(item.type)) { const image = el('img', 'brand-image'); image.src = iconPath(item.type); image.alt = ''; content.append(image); return; }
     switch (item.type) {
+      case 'arrow': {
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('aria-hidden', 'true');
+        for (const className of ['connector-hit', 'connector-line', 'connector-head']) {
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          path.setAttribute('class', className); svg.append(path);
+        }
+        content.append(svg); break;
+      }
       case 'image': content.append(el('span', 'image-symbol', '▧'), document.createTextNode(t)); break;
       case 'box': content.append(el('span', '', t)); break;
       case 'navbar': content.append(el('strong', '', t), el('span', 'nav-links', 'Home    About    Contact')); break;
@@ -374,6 +394,39 @@
       default: content.textContent = t;
     }
   }
+  function arrowGeometry(item) {
+    const from = page().find(entry => entry.id === item.fromId && entry.type !== 'arrow');
+    const to = page().find(entry => entry.id === item.toId && entry.type !== 'arrow');
+    if (!from || !to || from.id === to.id) return {
+      connected: false, x: item.x, y: item.y, w: item.w, h: item.h,
+      start: { x: 6, y: item.h - 6 }, end: { x: item.w - 9, y: 9 }
+    };
+    const center = entry => ({ x: entry.x + entry.w / 2, y: entry.y + entry.h / 2 });
+    const a = center(from), b = center(to), dx = b.x - a.x || .001, dy = b.y - a.y;
+    const edge = (entry, centerPoint, direction) => {
+      const distance = Math.min(entry.w / 2 / Math.abs(dx), dy ? entry.h / 2 / Math.abs(dy) : Infinity);
+      return { x: centerPoint.x + direction * dx * distance, y: centerPoint.y + direction * dy * distance };
+    };
+    const overlaps = from.x < to.x + to.w && from.x + from.w > to.x && from.y < to.y + to.h && from.y + from.h > to.y;
+    const start = overlaps ? a : edge(from, a, 1), end = overlaps ? b : edge(to, b, -1);
+    const x = Math.min(start.x, end.x) - 8, y = Math.min(start.y, end.y) - 8;
+    return { connected: true, x, y, w: Math.max(24, Math.abs(end.x - start.x) + 16), h: Math.max(12, Math.abs(end.y - start.y) + 16),
+      start: { x: start.x - x, y: start.y - y }, end: { x: end.x - x, y: end.y - y } };
+  }
+  function updateArrowNode(item, node) {
+    const geometry = arrowGeometry(item), { start, end } = geometry;
+    Object.assign(node.style, { left: `${geometry.x}px`, top: `${geometry.y}px`, width: `${geometry.w}px`, height: `${geometry.h}px` });
+    node.classList.toggle('connected', geometry.connected);
+    const svg = node.querySelector('svg'); svg.setAttribute('viewBox', `0 0 ${geometry.w} ${geometry.h}`);
+    const line = `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
+    const angle = Math.atan2(end.y - start.y, end.x - start.x), length = 12, spread = .55;
+    const tip = side => ({ x: end.x - length * Math.cos(angle + side * spread), y: end.y - length * Math.sin(angle + side * spread) });
+    const left = tip(1), right = tip(-1);
+    svg.querySelector('.connector-hit').setAttribute('d', line);
+    svg.querySelector('.connector-line').setAttribute('d', line);
+    svg.querySelector('.connector-head').setAttribute('d', `M ${left.x} ${left.y} L ${end.x} ${end.y} L ${right.x} ${right.y}`);
+  }
+  function refreshArrows() { for (const item of page()) if (item.type === 'arrow') { const node = itemNodes.get(item.id); if (node) updateArrowNode(item, node); } }
   function createItemNode(item, index) {
       const node = el('div', `canvas-item ${item.type}${item.type.endsWith('frame') ? ' device-frame' : ''}${isIcon(item.type) ? ' brand-icon' : ''}${hasText(item.type) ? ' has-text' : ''}${selection.has(item.id) ? ' selected' : ''}`);
       node.dataset.id = item.id; node.style.left = `${item.x}px`; node.style.top = `${item.y}px`;
@@ -383,10 +436,10 @@
       node.style.setProperty('--item-font-family', `"${item.fontFamily || DEFAULT_FONT}", sans-serif`);
       node.style.setProperty('--item-inset', `${Math.max(3, Math.round(17 * Math.min(1, item.w / (item.fontBaseW || item.w), item.h / (item.fontBaseH || item.h))))}px`);
       node.setAttribute('role', 'button'); node.tabIndex = 0; node.setAttribute('aria-pressed', String(selection.has(item.id)));
-      node.setAttribute('aria-label', `${ELEMENTS[item.type].name}: ${item.text || 'no text'}`);
+      node.setAttribute('aria-label', item.type === 'arrow' ? 'Arrow connector' : `${ELEMENTS[item.type].name}: ${item.text || 'no text'}`);
       const content = el('div', 'content'); buildContent(item, content);
       const handle = el('span', 'resize-handle'); handle.setAttribute('aria-hidden', 'true'); handle.title = 'Drag to resize. Hold Shift to keep proportions.';
-      node.append(content, handle); return node;
+      node.append(content, handle); if (item.type === 'arrow') updateArrowNode(item, node); return node;
   }
   function renderItems() {
     const fragment = document.createDocumentFragment(); itemNodes.clear(); itemsById.clear();
@@ -400,7 +453,7 @@
   function refreshItem(item) {
     const old = itemNodes.get(item.id); if (!old) { renderItems(); return; }
     const node = createItemNode(item, page().indexOf(item));
-    old.replaceWith(node); itemNodes.set(item.id, node);
+    old.replaceWith(node); itemNodes.set(item.id, node); refreshArrows();
   }
   function renderInspector() {
     inspector.replaceChildren(); const item = current();
@@ -416,6 +469,30 @@
     if (isIcon(item.type)) { const image = el('img'); image.src = iconPath(item.type); image.alt = ''; symbol.append(image); }
     else symbol.textContent = ELEMENTS[item.type].icon;
     heading.append(symbol, document.createTextNode(ELEMENTS[item.type].name)); inspector.append(heading);
+    if (item.type === 'arrow') {
+      inspector.append(el('p', 'connector-help', 'Choose a start and end element. The arrow follows them when they move. Select two elements before adding an arrow to connect them automatically.'));
+      const targets = page().filter(entry => entry.type !== 'arrow');
+      for (const [key, labelText] of [['fromId', 'From'], ['toId', 'To']]) {
+        const label = el('label', 'field-label', labelText), select = el('select');
+        label.htmlFor = `arrow-${key}`; select.id = `arrow-${key}`;
+        const none = el('option', '', 'None'); none.value = ''; select.append(none);
+        for (const [index, target] of targets.entries()) {
+          const option = el('option', '', `${ELEMENTS[target.type].name} ${index + 1}${target.text ? ` · ${target.text.slice(0, 22)}` : ''}`);
+          option.value = target.id; select.append(option);
+        }
+        select.value = item[key] || '';
+        select.addEventListener('change', () => {
+          if (select.value === (item[key] || '')) return;
+          if (select.value && select.value === item[key === 'fromId' ? 'toId' : 'fromId']) {
+            select.value = item[key] || ''; toast('Choose two different elements'); return;
+          }
+          snapshot(); if (select.value) item[key] = select.value; else delete item[key];
+          refreshItem(item); renderInspector(); save();
+        });
+        inspector.append(label, select);
+      }
+      if (arrowGeometry(item).connected) inspector.append(el('p', 'connector-help', 'Move either connected element to reposition the arrow. Clear an endpoint to move it freely.'));
+    }
     if (hasText(item.type)) {
       if (item.type === 'progress') {
         inspector.append(el('span', 'field-label', 'Progress'));
@@ -515,6 +592,7 @@
       });
       inspector.append(fontInput);
     }
+    if (item.type !== 'arrow') {
     const fontLabel = el('label', 'field-label', 'Font'); fontLabel.htmlFor = 'itemFontFamily'; inspector.append(fontLabel);
     const fontSelect = el('select'); fontSelect.id = 'itemFontFamily'; fontSelect.setAttribute('aria-label', 'Element font');
     for (const family of FONT_FAMILIES) { const option = el('option', '', family); option.value = family; fontSelect.append(option); }
@@ -524,8 +602,10 @@
       snapshot(); item.fontFamily = fontSelect.value; refreshItem(item); save();
     });
     inspector.append(fontSelect);
+    }
     inspector.append(el('hr'));
     const grid = el('div', 'field-grid'); const bounds = size();
+    if (item.type !== 'arrow' || !arrowGeometry(item).connected) {
     for (const [key, name] of [['x','X'],['y','Y'],['w','Width'],['h','Height']]) {
       const label = el('label'); label.append(el('span', 'field-label', name));
       const input = el('input'); input.type = 'number'; input.value = String(Math.round(item[key])); input.min = key === 'w' ? '24' : key === 'h' ? '12' : '0'; input.max = String(key === 'x' || key === 'w' ? bounds.w : bounds.h);
@@ -539,10 +619,11 @@
       label.append(input); grid.append(label);
     }
     inspector.append(grid);
+    }
     renderLayerActions();
     inspector.append(el('hr'));
     const remove = el('button', 'delete-btn', 'Delete element'); remove.type = 'button'; remove.addEventListener('click', deleteSelected); inspector.append(remove);
-    inspector.append(el('p', 'inspector-note', 'Drag the corner to resize. Hold Shift for proportions. Use Delete to remove.'));
+    inspector.append(el('p', 'inspector-note', item.type === 'arrow' ? 'Drag a free arrow or resize its corner. Use Delete to remove it.' : 'Drag the corner to resize. Hold Shift for proportions. Use Delete to remove.'));
   }
   function renderLayerActions() {
     const panel = el('div', 'layer-panel'); panel.append(el('span', 'field-label', 'Layer order'));
@@ -660,6 +741,7 @@
       const tab = el('button', 'page-tab', entry.name); tab.type = 'button'; tab.setAttribute('role', 'tab');
       tab.setAttribute('aria-selected', String(entry.id === doc.activePageId));
       tab.addEventListener('click', () => switchPage(entry.id)); tabs.append(tab);
+      tab.addEventListener('dblclick', () => { if (entry.id === doc.activePageId) renamePage(); });
     }
     $('#pageCount').textContent = `${doc.pages.length}/${MAX_PAGES}`;
     $('#addPage').disabled = !activeId || doc.pages.length >= MAX_PAGES;
@@ -683,19 +765,23 @@
     if (!activeId) return;
     const entry = activePage(), tab = [...$('#pageTabs').children].find(node => node.getAttribute('aria-selected') === 'true');
     if (!tab) return;
+    const editor = el('form', 'page-rename');
     const input = el('input', 'page-name-input'); input.type = 'text'; input.maxLength = 40; input.value = entry.name;
-    input.setAttribute('aria-label', 'Page name'); tab.replaceWith(input); input.focus(); input.select();
-    let done = false;
+    input.required = true; input.setAttribute('aria-label', 'Page name');
+    const saveButton = el('button', 'page-rename-save', 'Save'); saveButton.type = 'submit';
+    const cancelButton = el('button', 'page-rename-cancel', 'Cancel'); cancelButton.type = 'button';
+    editor.append(input, saveButton, cancelButton); tab.replaceWith(editor); input.focus(); input.select();
     const finish = commit => {
-      if (done) return;
-      done = true;
+      if (!editor.isConnected) return;
       const name = input.value.trim();
-      if (commit && name && name !== entry.name) { snapshot(); entry.name = name; save(); }
+      if (commit && !name) { input.setCustomValidity('Enter a page name'); input.reportValidity(); return; }
+      if (commit && name !== entry.name) { snapshot(); entry.name = name; save(); toast('Page renamed'); }
       renderPages();
     };
-    input.addEventListener('blur', () => finish(true));
+    editor.addEventListener('submit', event => { event.preventDefault(); finish(true); });
+    cancelButton.addEventListener('click', () => finish(false));
+    input.addEventListener('input', () => input.setCustomValidity(''));
     input.addEventListener('keydown', event => {
-      if (event.key === 'Enter') { event.preventDefault(); finish(true); }
       if (event.key === 'Escape') { event.preventDefault(); finish(false); }
     });
   }
@@ -732,6 +818,7 @@
   function add(type, x, y) {
     if (!activeId) { toast('Create a wireframe first'); return; }
     const def = ELEMENTS[type]; if (!def) return;
+    const connect = type === 'arrow' ? [...selection].map(id => page().find(item => item.id === id)).filter(item => item && item.type !== 'arrow').slice(0, 2) : [];
     const bounds = size(), offset = page().length % 5 * 16;
     const w = Math.min(def.w, bounds.w - 24), h = Math.min(def.h, bounds.h - 24);
     let px = x ?? scroll.scrollLeft / zoom + (doc.device === 'mobile' ? 18 : 100) + offset;
@@ -752,10 +839,11 @@
     if (type === 'table') item.cells = clone(TABLE_DEFAULTS);
     if (type === 'list') item.items = clone(LIST_DEFAULTS);
     if (type === 'dropdown') item.options = clone(DROPDOWN_DEFAULTS);
+    if (connect.length === 2) { item.fromId = connect[0].id; item.toId = connect[1].id; }
     if (type.endsWith('frame')) page().unshift(item); else page().push(item);
     selection = new Set([item.id]); selected = item.id; renderItems(); renderInspector(); inspector.scrollTop = 0; save(); toast(`${def.name} added`); return item;
   }
-  function deleteSelected() { if (!selection.size) return; const count = selection.size; snapshot(); currentCanvas().items = page().filter(item => !selection.has(item.id)); selection.clear(); selected = null; renderItems(); renderInspector(); save(); toast(`${count} element${count === 1 ? '' : 's'} deleted`); }
+  function deleteSelected() { if (!selection.size) return; const removed = new Set(selection); for (const item of page()) if (item.type === 'arrow' && (removed.has(item.fromId) || removed.has(item.toId))) removed.add(item.id); const count = removed.size; snapshot(); currentCanvas().items = page().filter(item => !removed.has(item.id)); selection.clear(); selected = null; renderItems(); renderInspector(); save(); toast(`${count} element${count === 1 ? '' : 's'} deleted`); }
 
   function filename(extension) { return (doc.title.trim().replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, '-') || 'wireframe') + extension; }
   function download(blob, name) { const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = name; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000); }
@@ -790,7 +878,14 @@
       exportFontFamily = FONT_FAMILIES.includes(item.fontFamily) ? item.fontFamily : DEFAULT_FONT;
       const fontSize = effectiveFontSize(item);
       c.save();
-      if (type === 'heading') wrapped(t, x, y, w, fontSize * 1.25, y + h, `bold ${fontSize}px Trebuchet MS, sans-serif`);
+      if (type === 'arrow') {
+        const geometry = arrowGeometry(item), a = { x: geometry.x + geometry.start.x, y: geometry.y + geometry.start.y }, b = { x: geometry.x + geometry.end.x, y: geometry.y + geometry.end.y };
+        line(a.x, a.y, b.x, b.y, ink, 2.5);
+        const angle = Math.atan2(b.y - a.y, b.x - a.x), left = angle + .55, right = angle - .55;
+        line(b.x - 12 * Math.cos(left), b.y - 12 * Math.sin(left), b.x, b.y, ink, 2.5);
+        line(b.x, b.y, b.x - 12 * Math.cos(right), b.y - 12 * Math.sin(right), ink, 2.5);
+      }
+      else if (type === 'heading') wrapped(t, x, y, w, fontSize * 1.25, y + h, `bold ${fontSize}px Trebuchet MS, sans-serif`);
       else if (type === 'text') wrapped(t, x, y, w, fontSize * 1.4, y + h, `${fontSize}px Trebuchet MS, sans-serif`);
       else if (type === 'label') write(t, x, y + h / 2, `bold ${fontSize}px Trebuchet MS, sans-serif`, ink, w);
       else if (type === 'link') { write(t, x, y + h / 2, `${fontSize}px Trebuchet MS, sans-serif`, '#425a66', w); line(x, y + h - 5, x + Math.min(w, c.measureText(t).width), y + h - 5, '#425a66', 1); }
@@ -906,9 +1001,11 @@
       selected = selection.size === 1 ? selection.values().next().value : null;
       syncSelectionVisuals(); renderInspector(); event.preventDefault(); return;
     }
+    if (item.type === 'arrow' && arrowGeometry(item).connected) { setSelected(item.id); event.preventDefault(); return; }
     const mode = event.target.classList.contains('resize-handle') && selection.size === 1 ? 'resize' : 'move';
     if (!selection.has(item.id)) setSelected(item.id);
-    const members = selectedItems().map(entry => ({ item: entry, node: itemNodes.get(entry.id), x: entry.x, y: entry.y, w: entry.w, h: entry.h }));
+    const members = selectedItems().filter(entry => entry.type !== 'arrow' || !arrowGeometry(entry).connected).map(entry => ({ item: entry, node: itemNodes.get(entry.id), x: entry.x, y: entry.y, w: entry.w, h: entry.h }));
+    if (!members.length) return;
     drag = { device: doc.device, pageId: doc.activePageId, mode, startX: event.clientX, startY: event.clientY, members, started: false,
       left: Math.min(...members.map(entry => entry.x)), top: Math.min(...members.map(entry => entry.y)),
       right: Math.max(...members.map(entry => entry.x + entry.w)), bottom: Math.max(...members.map(entry => entry.y + entry.h)) };
@@ -922,7 +1019,7 @@
       marquee.moved ||= width + height > 3;
       Object.assign(marquee.overlay.style, { left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px` });
       selection = new Set(marquee.base);
-      if (marquee.moved) for (const item of page()) if (item.x < left + width && item.x + item.w > left && item.y < top + height && item.y + item.h > top) selection.add(item.id);
+      if (marquee.moved) for (const item of page()) { const box = item.type === 'arrow' ? arrowGeometry(item) : item; if (box.x < left + width && box.x + box.w > left && box.y < top + height && box.y + box.h > top) selection.add(item.id); }
       selected = selection.size === 1 ? selection.values().next().value : null;
       syncSelectionVisuals(); return;
     }
@@ -948,6 +1045,7 @@
         node.style.setProperty('--item-inset', `${Math.max(3, Math.round(17 * Math.min(1, item.w / (item.fontBaseW || item.w), item.h / (item.fontBaseH || item.h))))}px`);
       }
     }
+    refreshArrows();
   });
   window.addEventListener('pointerup', () => {
     if (marquee) { marquee.overlay.remove(); marquee = null; renderInspector(); }
@@ -965,14 +1063,15 @@
     if ((event.ctrlKey || event.metaKey) && !editing && event.key.toLowerCase() === 'a') { event.preventDefault(); setSelection(page().map(item => item.id)); }
     if (!editing && selection.size && ['Delete', 'Backspace'].includes(event.key)) { event.preventDefault(); deleteSelected(); }
     if (!editing && selection.size && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
-      event.preventDefault(); const items = selectedItems(), bounds = size(), step = event.shiftKey ? 10 : 1;
+      event.preventDefault(); const items = selectedItems().filter(item => item.type !== 'arrow' || !arrowGeometry(item).connected), bounds = size(), step = event.shiftKey ? 10 : 1;
+      if (!items.length) return;
       const proposedX = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0;
       const proposedY = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0;
       const dx = clamp(proposedX, -Math.min(...items.map(item => item.x)), bounds.w - Math.max(...items.map(item => item.x + item.w)));
       const dy = clamp(proposedY, -Math.min(...items.map(item => item.y)), bounds.h - Math.max(...items.map(item => item.y + item.h)));
       if (!dx && !dy) return;
       snapshot(); for (const item of items) { item.x += dx; item.y += dy; const node = itemNodes.get(item.id); if (node) { node.style.left = `${item.x}px`; node.style.top = `${item.y}px`; } }
-      renderInspector(); save();
+      refreshArrows(); renderInspector(); save();
     }
     if (event.key === 'Escape' && !editing) setSelected(null);
   });
